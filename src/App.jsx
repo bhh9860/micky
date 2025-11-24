@@ -9,12 +9,12 @@ import { getFirestore, collection, getDocs, addDoc, deleteDoc, doc, updateDoc, q
 
 // [중요 2] Firebase 설정 (제공해주신 키 적용)
 const firebaseConfig = {
-  apiKey: "AIzaSyCRJPd-JLVUHsIVUkZ8fnn1Ib0-Q_CdJ64",
-  authDomain: "micky-2e9cc.firebaseapp.com",
-  projectId: "micky-2e9cc",
-  storageBucket: "micky-2e9cc.firebasestorage.app",
-  messagingSenderId: "730858375622",
-  appId: "1:730858375622:web:199bbe9bb3bcf0f1dfcac7"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
 // Firebase 초기화
@@ -27,7 +27,7 @@ try {
 }
 
 // [중요 3] Gemini API Key (제공해주신 키 적용)
-const geminiApiKey = "AIzaSyD9fFF1CrFbl-Q1xgb33Q3nKdJN1wzYI3A";
+const geminiApiKey = import.meta.env.VITE_GEMINI_API_KEY;
 
 // --- 초기 데이터 (DB가 비었을 때 자동 생성용) ---
 const NAMES = [
