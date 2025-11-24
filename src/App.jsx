@@ -1,12 +1,35 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { User, FileText, BarChart2, Save, Plus, Trash2, PieChart, UserPlus, X, Sparkles, Loader2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
-// import './index.css' // 이 줄이 웹 환경에서 오류를 일으키므로 제거했습니다. Tailwind CSS는 자동으로 적용됩니다.
+// import './index.css' // [수정] 미리보기 환경 오류 방지를 위해 제거 (Tailwind 자동 적용됨)
 
-// [중요] AI 기능을 사용하려면 아래 따옴표 안에 본인의 Gemini API 키를 입력하세요.
-const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+// [중요 1] Firebase 라이브러리
+import { initializeApp } from "firebase/app";
+import { getFirestore, collection, getDocs, addDoc, deleteDoc, doc, updateDoc, query, orderBy, writeBatch } from "firebase/firestore";
 
-// --- 1. 가상 데이터 생성 (총 10명) ---
+// [중요 2] Firebase 설정 (제공해주신 키 적용)
+const firebaseConfig = {
+  apiKey: "AIzaSyCRJPd-JLVUHsIVUkZ8fnn1Ib0-Q_CdJ64",
+  authDomain: "micky-2e9cc.firebaseapp.com",
+  projectId: "micky-2e9cc",
+  storageBucket: "micky-2e9cc.firebasestorage.app",
+  messagingSenderId: "730858375622",
+  appId: "1:730858375622:web:199bbe9bb3bcf0f1dfcac7"
+};
+
+// Firebase 초기화
+let db;
+try {
+  const app = initializeApp(firebaseConfig);
+  db = getFirestore(app);
+} catch (error) {
+  console.error("Firebase 초기화 실패:", error);
+}
+
+// [중요 3] Gemini API Key (제공해주신 키 적용)
+const geminiApiKey = "AIzaSyD9fFF1CrFbl-Q1xgb33Q3nKdJN1wzYI3A";
+
+// --- 초기 데이터 (DB가 비었을 때 자동 생성용) ---
 const NAMES = [
   { k: '허지후', e: 'Jacob' }, { k: '김소피아', e: 'Sophia' }, { k: '이다니엘', e: 'Daniel' },
   { k: '박올리비아', e: 'Olivia' }, { k: '최마이클', e: 'Michael' }, { k: '정에밀리', e: 'Emily' },
@@ -15,85 +38,127 @@ const NAMES = [
 const GRADES = ['G3', 'G4', 'G5', 'G6'];
 const CLASSES = ['Starter-1', 'Basic-1', 'Basic-2', 'Intermediate-1', 'Intermediate-2'];
 
-// 학생 데이터 생성
-const initialStudents = NAMES.map((name, idx) => ({
-  id: `S00${idx + 1}`,
-  name: `${name.e} (${name.k})`,
-  school: idx % 2 === 0 ? '초등A교' : '초등B교',
-  grade: idx === 0 ? 'G5' : GRADES[Math.floor(Math.random() * GRADES.length)], 
-  classInfo: idx === 0 ? 'Basic-2' : CLASSES[Math.floor(Math.random() * CLASSES.length)]
-}));
-
-const initialExams = [
-  { id: 'T25-11', name: '11월 Monthly Test', date: '2025-11-30', type: '정기평가' },
-];
-
-// 초기 점수 데이터 생성
-const initialScores = initialStudents.map((student, idx) => {
-  // 1번 허지후 학생(S001) 데이터 고정
-  if (student.id === 'S001') {
-    return {
-      id: idx + 1,
-      examId: 'T25-11',
-      studentId: student.id,
-      // Monthly Evaluation
-      ls1: 5, ls2: 4, ls3: 13, ls4: 5,
-      rw1: 4, rw2: 5, rw3: 10, rw4: 10,
-      // Class Progress (All Excellent)
-      cp_reading: 'Excellent',
-      cp_listening: 'Excellent',
-      cp_writing: 'Excellent',
-      cp_grammar: 'Excellent',
-      // Class Attitude
-      att_attendance: 'Excellent',      
-      att_homework: 'Excellent',
-      teacher_comment: '' // AI 코멘트 저장용
-    };
-  }
-
-  // 나머지 학생은 랜덤 생성
-  const rand = Math.random();
-  let tier = 'MID'; 
-  if (rand < 0.3) tier = 'HIGH'; 
-  else if (rand > 0.8) tier = 'LOW'; 
-
-  const getScore = (max) => {
-    let ratio;
-    if (tier === 'HIGH') ratio = 0.8 + (Math.random() * 0.2);
-    else if (tier === 'MID') ratio = 0.5 + (Math.random() * 0.3);
-    else ratio = 0.3 + (Math.random() * 0.3);
-    return Math.round(max * ratio);
-  };
-
-  const getEval = () => {
-    if (tier === 'HIGH') return 'Excellent';
-    if (tier === 'MID') return Math.random() > 0.3 ? 'Excellent' : 'Good';
-    return Math.random() > 0.5 ? 'Good' : 'Bad';
-  };
-
-  return {
-    id: idx + 1,
-    examId: 'T25-11',
-    studentId: student.id,
-    ls1: getScore(5), ls2: getScore(5), ls3: getScore(15), ls4: getScore(5),
-    rw1: getScore(5), rw2: getScore(5), rw3: getScore(10), rw4: getScore(10),
-    cp_reading: getEval(), cp_listening: getEval(), cp_writing: getEval(), cp_grammar: getEval(),
-    att_attendance: getEval(), att_homework: getEval(),
-    teacher_comment: '' // AI 코멘트 저장용
-  };
-});
-
 const MickeyExcelApp = () => {
   const [activeTab, setActiveTab] = useState('input');
-  const [students, setStudents] = useState(initialStudents); 
-  const [scores, setScores] = useState(initialScores);
   
-  const [newStudent, setNewStudent] = useState({ name: '', school: '', grade: 'G3', classInfo: 'Basic-1' });
-  const [selectedStudentId, setSelectedStudentId] = useState(initialStudents[0].id);
-  const [statCriteria, setStatCriteria] = useState('class');
+  // DB 데이터 상태
+  const [students, setStudents] = useState([]);
+  const [scores, setScores] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // AI 상태 관리
+  const [newStudent, setNewStudent] = useState({ name: '', school: '', grade: 'G3', classInfo: 'Basic-1' });
+  const [selectedStudentId, setSelectedStudentId] = useState('');
+  const [statCriteria, setStatCriteria] = useState('class');
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+
+  // --- 초기 데이터 생성 함수 (DB 업로드) ---
+  const uploadInitialData = async () => {
+    if (!db) return;
+    try {
+      setIsLoading(true);
+      const batch = writeBatch(db); // 한 번에 저장하기 위한 batch
+
+      // 1. 학생 데이터 생성
+      const studentRefs = [];
+      for (let i = 0; i < NAMES.length; i++) {
+        const sData = {
+          name: `${NAMES[i].e} (${NAMES[i].k})`,
+          school: i % 2 === 0 ? '초등A교' : '초등B교',
+          grade: i === 0 ? 'G5' : GRADES[Math.floor(Math.random() * GRADES.length)],
+          classInfo: i === 0 ? 'Basic-2' : CLASSES[Math.floor(Math.random() * CLASSES.length)]
+        };
+        const sRef = doc(collection(db, "students")); // ID 자동 생성
+        batch.set(sRef, sData);
+        studentRefs.push({ id: sRef.id, ...sData });
+      }
+
+      // 2. 성적 데이터 생성
+      for (let i = 0; i < studentRefs.length; i++) {
+        const s = studentRefs[i];
+        let scoreData = {};
+
+        // 1번 학생(허지후) 고정 데이터
+        if (i === 0) {
+          scoreData = {
+            id: Date.now() + i,
+            examId: 'T25-11',
+            studentId: s.id,
+            ls1: 5, ls2: 4, ls3: 13, ls4: 5,
+            rw1: 4, rw2: 5, rw3: 10, rw4: 10,
+            cp_reading: 'Excellent', cp_listening: 'Excellent', cp_writing: 'Excellent', cp_grammar: 'Excellent',
+            att_attendance: 'Excellent', att_homework: 'Excellent',
+            teacher_comment: ''
+          };
+        } else {
+          // 랜덤 데이터
+          const rand = Math.random();
+          let tier = 'MID';
+          if (rand < 0.3) tier = 'HIGH'; else if (rand > 0.8) tier = 'LOW';
+          
+          const getScore = (max) => Math.round(max * (tier === 'HIGH' ? 0.9 : tier === 'MID' ? 0.7 : 0.5));
+          const getEval = () => (tier === 'HIGH' ? 'Excellent' : tier === 'MID' ? 'Good' : 'Bad');
+
+          scoreData = {
+            id: Date.now() + i,
+            examId: 'T25-11',
+            studentId: s.id,
+            ls1: getScore(5), ls2: getScore(5), ls3: getScore(15), ls4: getScore(5),
+            rw1: getScore(5), rw2: getScore(5), rw3: getScore(10), rw4: getScore(10),
+            cp_reading: getEval(), cp_listening: getEval(), cp_writing: getEval(), cp_grammar: getEval(),
+            att_attendance: getEval(), att_homework: getEval(),
+            teacher_comment: ''
+          };
+        }
+        const scoreRef = doc(collection(db, "scores"));
+        batch.set(scoreRef, scoreData);
+      }
+
+      await batch.commit(); // DB에 전송
+      alert("초기 데이터가 DB에 생성되었습니다!");
+      window.location.reload(); // 새로고침해서 데이터 불러오기
+    } catch (e) {
+      console.error("초기 데이터 생성 실패:", e);
+    }
+  };
+
+  // --- 데이터 불러오기 (Read) ---
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!db) {
+        setIsLoading(false);
+        return;
+      }
+      setIsLoading(true);
+      try {
+        // 학생 데이터
+        const studentSnapshot = await getDocs(collection(db, "students"));
+        const loadedStudents = studentSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        
+        // 성적 데이터
+        const scoreSnapshot = await getDocs(query(collection(db, "scores"), orderBy("id", "asc")));
+        const loadedScores = scoreSnapshot.docs.map(doc => ({ docId: doc.id, ...doc.data() }));
+
+        if (loadedStudents.length === 0 && loadedScores.length === 0) {
+          // 데이터가 하나도 없으면 초기 데이터 생성 제안
+          if(window.confirm("DB에 데이터가 없습니다. 초기 테스트 데이터를 생성할까요?")) {
+            await uploadInitialData();
+            return; 
+          }
+        }
+
+        setStudents(loadedStudents);
+        setScores(loadedScores);
+        if (loadedStudents.length > 0) setSelectedStudentId(loadedStudents[0].id);
+
+      } catch (error) {
+        console.error("데이터 불러오기 오류:", error);
+        alert("데이터 로드 실패. Firebase 설정을 확인하세요.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
 
   // --- 헬퍼 함수 ---
   const getStudentInfo = (id) => students.find(s => s.id === id);
@@ -109,7 +174,7 @@ const MickeyExcelApp = () => {
       
       return {
         ...score,
-        name: sInfo?.name || '', 
+        name: sInfo?.name || '삭제된 학생', 
         classInfo: sInfo?.classInfo || '-',
         grade: sInfo?.grade || '-',
         lsTotal,
@@ -127,7 +192,7 @@ const MickeyExcelApp = () => {
 
   const statisticsData = useMemo(() => {
     const grouped = {};
-    const validScores = enrichedScores.filter(s => s.name !== '' && s.classInfo !== '-');
+    const validScores = enrichedScores.filter(s => s.name !== '삭제된 학생' && s.classInfo !== '-');
 
     validScores.forEach(score => {
       const key = statCriteria === 'class' ? score.classInfo : score.grade;
@@ -141,56 +206,79 @@ const MickeyExcelApp = () => {
     return Object.values(grouped)
       .map(g => ({
         name: g.name,
-        lsAvg: Math.round(g.lsSum / g.count),
-        rwAvg: Math.round(g.rwSum / g.count),
-        totalAvg: Math.round(g.totalSum / g.count),
+        lsAvg: Math.round(g.lsSum / g.count) || 0,
+        rwAvg: Math.round(g.rwSum / g.count) || 0,
+        totalAvg: Math.round(g.totalSum / g.count) || 0,
         count: g.count
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [enrichedScores, statCriteria]);
 
   // --- 핸들러 ---
-  const handleAddStudent = () => {
+  const handleAddStudent = async () => {
     if (!newStudent.name) return alert('이름을 입력해주세요.');
-    const newId = `S${String(students.length + 1).padStart(3, '0')}`;
-    const studentToAdd = { id: newId, ...newStudent };
-    
-    setStudents([...students, studentToAdd]);
-    
-    // [Ver 2.9] 학생 추가 시 점수 목록 자동 생성
-    const newScoreRow = {
-      id: Date.now(), 
-      examId: 'T25-11',
-      studentId: newId, 
-      ls1: 0, ls2: 0, ls3: 0, ls4: 0,
-      rw1: 0, rw2: 0, rw3: 0, rw4: 0,
-      cp_reading: 'Excellent', cp_listening: 'Excellent', cp_writing: 'Excellent', cp_grammar: 'Excellent',
-      att_attendance: 'Excellent', att_homework: 'Excellent',
-      teacher_comment: ''
-    };
-    setScores([...scores, newScoreRow]);
+    if (!db) return alert("DB 연결이 안되어 있습니다.");
 
-    setNewStudent({ name: '', school: '', grade: 'G3', classInfo: 'Basic-1' }); 
-    alert(`${newStudent.name} 학생이 추가되었습니다! 2번 탭에 자동으로 입력란이 생성되었습니다.`);
+    try {
+      // 학생 추가
+      const docRef = await addDoc(collection(db, "students"), newStudent);
+      const newStudentObj = { id: docRef.id, ...newStudent };
+      setStudents([...students, newStudentObj]);
+
+      // 성적표 자동 생성
+      const newScoreData = {
+        id: Date.now(), 
+        examId: 'T25-11',
+        studentId: docRef.id, 
+        ls1: 0, ls2: 0, ls3: 0, ls4: 0,
+        rw1: 0, rw2: 0, rw3: 0, rw4: 0,
+        cp_reading: 'Excellent', cp_listening: 'Excellent', cp_writing: 'Excellent', cp_grammar: 'Excellent',
+        att_attendance: 'Excellent', att_homework: 'Excellent',
+        teacher_comment: ''
+      };
+      const scoreRef = await addDoc(collection(db, "scores"), newScoreData);
+      setScores([...scores, { docId: scoreRef.id, ...newScoreData }]);
+
+      setNewStudent({ name: '', school: '', grade: 'G3', classInfo: 'Basic-1' }); 
+      alert(`${newStudent.name} 학생 등록 완료!`);
+    } catch (e) {
+      console.error(e);
+      alert("저장 실패");
+    }
   };
 
-  const handleDeleteStudent = (id) => {
-    if (window.confirm('학생을 삭제하면 성적 데이터도 삭제됩니다. 계속하시겠습니까?')) {
+  const handleDeleteStudent = async (id) => {
+    if (!window.confirm('학생을 삭제하시겠습니까?')) return;
+    try {
+      await deleteDoc(doc(db, "students", id));
       setStudents(students.filter(s => s.id !== id));
-      setScores(scores.filter(s => s.studentId !== id));
+    } catch (e) {
+      alert("삭제 실패");
     }
   };
 
-  const handleDeleteScoreRow = (id) => {
-    if (window.confirm('이 점수 기록을 삭제하시겠습니까?')) {
-      setScores(prev => prev.filter(row => row.id !== id));
+  const handleDeleteScoreRow = async (docId) => {
+    if (!window.confirm('삭제하시겠습니까?')) return;
+    try {
+      await deleteDoc(doc(db, "scores", docId));
+      setScores(prev => prev.filter(row => row.docId !== docId));
+    } catch (e) {
+      alert("삭제 실패");
     }
   };
 
-  const handleEditScore = (id, field, value) => {
+  const handleEditScore = async (docId, field, value) => {
+    // 로컬 먼저 업데이트 (반응성)
     setScores(prev => prev.map(row => 
-      row.id === id ? { ...row, [field]: value } : row
+      row.docId === docId ? { ...row, [field]: value } : row
     ));
+    // DB 업데이트
+    try {
+      const ref = doc(db, "scores", docId);
+      await updateDoc(ref, { [field]: value });
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const handleNameClick = (studentId) => {
@@ -199,77 +287,62 @@ const MickeyExcelApp = () => {
     setActiveTab('report');
   };
 
-  // --- Gemini AI 코멘트 생성 함수 ---
   const generateAIComment = async () => {
     if (!studentReportData.length) return;
-    
-    if (!apiKey) {
-      alert('AI 기능을 사용하려면 코드 상단의 apiKey 변수에 Gemini API 키를 입력해야 합니다.');
-      return;
-    }
+    if (!geminiApiKey) return alert('Gemini API Key가 없습니다.');
     
     setIsGeneratingAI(true);
     const data = studentReportData[0];
     
     const prompt = `
-      Role: You are a warm English teacher at Mickey English Academy.
-      Task: Write a "Teacher's Comment" for a student's monthly report in Korean (존댓말).
-      Student: ${data.name} (${data.grade}, ${data.classInfo})
-      Scores (Total 60): L&S ${data.lsTotal}/30, R&W ${data.rwTotal}/30.
-      Attitude: Attendance ${data.att_attendance}, Homework ${data.att_homework}.
-      Progress: Reading ${data.cp_reading}, Listening ${data.cp_listening}, Writing ${data.cp_writing}, Grammar ${data.cp_grammar}.
-      
-      Guidelines:
-      1. Start with a warm greeting using the student's name.
-      2. Praise strengths (Excellent/High scores).
-      3. Gently suggest improvements for lower areas.
-      4. Keep it encouraging and concise (3-4 sentences).
-      5. Plain text only.
+      Role: Warm English Teacher. Task: Monthly report comment for student (Korean).
+      Student: ${data.name} (${data.grade}, ${data.classInfo}).
+      Scores(60): L&S ${data.lsTotal}, R&W ${data.rwTotal}.
+      Attitude: Attend ${data.att_attendance}, HW ${data.att_homework}.
+      Progress: Read ${data.cp_reading}, List ${data.cp_listening}, Writ ${data.cp_writing}, Gram ${data.cp_grammar}.
+      Guidelines: Polite Korean(존댓말). Warm greeting. Praise strengths. Gentle advice for weak points.
     `;
 
     try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${geminiApiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
       });
-
-      if (!response.ok) throw new Error('API Call Failed');
       const result = await response.json();
       const comment = result.candidates?.[0]?.content?.parts?.[0]?.text || "생성 실패";
-      handleEditScore(data.id, 'teacher_comment', comment);
+      handleEditScore(data.docId, 'teacher_comment', comment);
     } catch (error) {
-      console.error(error);
-      alert('AI 요청 중 오류가 발생했습니다. API 키를 확인해주세요.');
+      alert('AI 오류 발생');
     } finally {
       setIsGeneratingAI(false);
     }
   };
 
+  if (isLoading) return <div className="flex h-screen items-center justify-center w-screen bg-white"><Loader2 className="animate-spin text-indigo-600" size={48}/></div>;
+
   return (
-    // [수정] w-full -> w-screen, overflow-x-hidden 추가 (화면 꽉 채우기)
     <div className="flex flex-col min-h-screen w-screen bg-gray-50 text-gray-800 font-sans overflow-x-hidden">
-      {/* Header - Full Width */}
+      {/* Header */}
       <header className="bg-indigo-700 text-white shadow-md">
         <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 h-16 flex justify-between items-center">
           <h1 className="text-xl font-bold flex items-center gap-2">
-            <FileText size={24} /> 미키영어학원 성적관리 Ver 3.0 + AI
+            <FileText size={24} /> 미키영어학원 성적관리 (DB Ver)
           </h1>
           <div className="text-sm bg-indigo-800 px-3 py-1 rounded flex items-center gap-2">
-            <Sparkles size={14} className="text-yellow-300"/> AI Ready
+            <Sparkles size={14} className="text-yellow-300"/> Live Data
           </div>
         </div>
       </header>
 
-      {/* Navigation - Full Width */}
-      <nav className="bg-gray-100 border-b border-gray-200 pt-2"> {/* 탭 컨테이너 배경색 변경 및 패딩 추가 */}
+      {/* Navigation */}
+      <nav className="bg-gray-100 border-b border-gray-200 pt-2">
         <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8">
           <div className="flex overflow-x-auto">
             {[{ id: 'students', label: '1. 학생관리', icon: User }, { id: 'input', label: '2. 점수입력', icon: Save }, { id: 'report', label: '3. 성적표', icon: FileText }, { id: 'dashboard', label: '4. 통계', icon: BarChart2 }].map((tab) => (
               <button 
                 key={tab.id} 
                 onClick={() => setActiveTab(tab.id)} 
-                // [수정] 탭 스타일 개선: 활성 시 흰 배경/파란 글씨, 비활성 시 투명 배경/회색 글씨 + 마진 추가 + 보더 제거
                 className={`
                   px-6 py-3 font-medium text-sm flex items-center gap-2 whitespace-nowrap transition-all rounded-t-lg mr-2 outline-none ring-0
                   ${activeTab === tab.id 
@@ -284,9 +357,8 @@ const MickeyExcelApp = () => {
         </div>
       </nav>
 
-      {/* Main Content - Full Width Background, Centered Content */}
+      {/* Main Content */}
       <main className="flex-1 overflow-auto bg-gray-50">
-        {/* [중요] max-w-7xl mx-auto로 컨텐츠 중앙 정렬 */}
         <div className="max-w-7xl mx-auto w-full p-6">
           {/* TAB 1: 학생관리 */}
           {activeTab === 'students' && (
@@ -294,45 +366,18 @@ const MickeyExcelApp = () => {
                <div className="bg-white p-6 rounded-lg shadow border border-indigo-200 bg-indigo-50">
                  <h3 className="font-bold text-lg text-indigo-800 mb-4 flex items-center gap-2"><UserPlus size={20}/> 신규 학생 등록</h3>
                  <div className="flex flex-wrap gap-4 items-end">
-                   <div className="flex flex-col gap-1">
-                     <label className="text-xs font-bold text-gray-600">이름</label>
-                     <input type="text" placeholder="예: Jacob" className="border p-2 rounded w-40 bg-white text-gray-900" value={newStudent.name} onChange={(e) => setNewStudent({...newStudent, name: e.target.value})} />
-                   </div>
-                   <div className="flex flex-col gap-1">
-                     <label className="text-xs font-bold text-gray-600">학교</label>
-                     <input type="text" placeholder="예: 초등A교" className="border p-2 rounded w-32 bg-white text-gray-900" value={newStudent.school} onChange={(e) => setNewStudent({...newStudent, school: e.target.value})} />
-                   </div>
-                   <div className="flex flex-col gap-1">
-                     <label className="text-xs font-bold text-gray-600">학년</label>
-                     <select className="border p-2 rounded w-24 bg-white text-gray-900" value={newStudent.grade} onChange={(e) => setNewStudent({...newStudent, grade: e.target.value})}>
-                       {GRADES.map(g => <option key={g} value={g}>{g}</option>)}
-                     </select>
-                   </div>
-                   <div className="flex flex-col gap-1">
-                     <label className="text-xs font-bold text-gray-600">Class</label>
-                     <select className="border p-2 rounded w-32 bg-white text-gray-900" value={newStudent.classInfo} onChange={(e) => setNewStudent({...newStudent, classInfo: e.target.value})}>
-                       {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
-                     </select>
-                   </div>
+                   <div className="flex flex-col gap-1"><label className="text-xs font-bold text-gray-600">이름</label><input type="text" placeholder="예: Jacob" className="border p-2 rounded w-40 bg-white text-gray-900" value={newStudent.name} onChange={(e) => setNewStudent({...newStudent, name: e.target.value})} /></div>
+                   <div className="flex flex-col gap-1"><label className="text-xs font-bold text-gray-600">학교</label><input type="text" placeholder="예: 초등A교" className="border p-2 rounded w-32 bg-white text-gray-900" value={newStudent.school} onChange={(e) => setNewStudent({...newStudent, school: e.target.value})} /></div>
+                   <div className="flex flex-col gap-1"><label className="text-xs font-bold text-gray-600">학년</label><select className="border p-2 rounded w-24 bg-white text-gray-900" value={newStudent.grade} onChange={(e) => setNewStudent({...newStudent, grade: e.target.value})}>{GRADES.map(g => <option key={g} value={g}>{g}</option>)}</select></div>
+                   <div className="flex flex-col gap-1"><label className="text-xs font-bold text-gray-600">Class</label><select className="border p-2 rounded w-32 bg-white text-gray-900" value={newStudent.classInfo} onChange={(e) => setNewStudent({...newStudent, classInfo: e.target.value})}>{CLASSES.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
                    <button onClick={handleAddStudent} className="bg-indigo-600 text-white px-6 py-2 rounded hover:bg-indigo-700 font-bold">+ 등록</button>
                  </div>
                  <p className="text-xs text-indigo-600 mt-2">* 학생을 등록하면 2번 탭에 점수 입력란이 자동으로 생성됩니다.</p>
                </div>
                <div className="bg-white p-6 rounded-lg shadow border border-gray-200">
-                 <h2 className="text-lg font-bold text-gray-800 mb-4">학생 목록</h2>
+                 <h2 className="text-lg font-bold text-gray-800 mb-4">학생 목록 (DB)</h2>
                  <table className="w-full text-sm text-left"><thead className="bg-gray-100"><tr><th className="p-2 border w-16">No.</th><th className="p-2 border">이름</th><th className="p-2 border">학교</th><th className="p-2 border">학년</th><th className="p-2 border">Class</th><th className="p-2 border w-20">관리</th></tr></thead>
-                   <tbody>{students.map((s, idx) => (
-                     <tr key={s.id} className="border-b hover:bg-gray-50">
-                       <td className="p-2 border text-center">{idx + 1}</td>
-                       <td className="p-2 border font-bold">{s.name}</td>
-                       <td className="p-2 border">{s.school}</td>
-                       <td className="p-2 border">{s.grade}</td>
-                       <td className="p-2 border text-indigo-600">{s.classInfo}</td>
-                       <td className="p-2 border text-center">
-                         <button onClick={() => handleDeleteStudent(s.id)} className="bg-white p-1 rounded border border-gray-200 text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"><Trash2 size={16}/></button>
-                       </td>
-                     </tr>
-                   ))}</tbody>
+                   <tbody>{students.map((s, idx) => (<tr key={s.id} className="border-b hover:bg-gray-50"><td className="p-2 border text-center">{idx + 1}</td><td className="p-2 border font-bold">{s.name}</td><td className="p-2 border">{s.school}</td><td className="p-2 border">{s.grade}</td><td className="p-2 border text-indigo-600">{s.classInfo}</td><td className="p-2 border text-center"><button onClick={() => handleDeleteStudent(s.id)} className="bg-white p-1 rounded border border-gray-200 text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"><Trash2 size={16}/></button></td></tr>))}</tbody>
                  </table>
                </div>
              </div>
@@ -373,36 +418,22 @@ const MickeyExcelApp = () => {
                   </thead>
                   <tbody>
                     {enrichedScores.map((row) => (
-                      <tr key={row.id} className="border-b hover:bg-indigo-50 transition-colors h-10 group">
-                        <td 
-                          className="p-2 border sticky left-0 bg-white z-20 border-r-2 border-r-gray-200 font-bold text-indigo-600 cursor-pointer hover:underline hover:text-indigo-800 text-left"
-                          onClick={() => handleNameClick(row.studentId)}
-                          title="성적표 보기"
-                        >
-                          {row.name}
-                        </td>
+                      <tr key={row.docId} className="border-b hover:bg-indigo-50 transition-colors h-10 group">
+                        <td className="p-2 border sticky left-0 bg-white z-20 border-r-2 border-r-gray-200 font-bold text-indigo-600 cursor-pointer hover:underline hover:text-indigo-800 text-left" onClick={() => handleNameClick(row.studentId)} title="성적표 보기">{row.name}</td>
                         <td className="p-2 border text-gray-500 bg-gray-50">{row.classInfo}</td>
                         
-                        <td className="p-0 border"><input type="number" className="w-full text-center p-1 bg-transparent text-gray-900 focus:bg-blue-100 outline-none h-full" value={row.ls1} onChange={e => handleEditScore(row.id, 'ls1', Number(e.target.value))} /></td>
-                        <td className="p-0 border"><input type="number" className="w-full text-center p-1 bg-transparent text-gray-900 focus:bg-blue-100 outline-none h-full" value={row.ls2} onChange={e => handleEditScore(row.id, 'ls2', Number(e.target.value))} /></td>
-                        <td className="p-0 border"><input type="number" className="w-full text-center p-1 bg-transparent text-gray-900 focus:bg-blue-100 font-bold outline-none h-full" value={row.ls3} onChange={e => handleEditScore(row.id, 'ls3', Number(e.target.value))} /></td>
-                        <td className="p-0 border"><input type="number" className="w-full text-center p-1 bg-transparent text-gray-900 focus:bg-blue-100 outline-none h-full" value={row.ls4} onChange={e => handleEditScore(row.id, 'ls4', Number(e.target.value))} /></td>
-                        <td className="p-0 border"><input type="number" className="w-full text-center p-1 bg-transparent text-gray-900 focus:bg-green-100 outline-none h-full" value={row.rw1} onChange={e => handleEditScore(row.id, 'rw1', Number(e.target.value))} /></td>
-                        <td className="p-0 border"><input type="number" className="w-full text-center p-1 bg-transparent text-gray-900 focus:bg-green-100 outline-none h-full" value={row.rw2} onChange={e => handleEditScore(row.id, 'rw2', Number(e.target.value))} /></td>
-                        <td className="p-0 border"><input type="number" className="w-full text-center p-1 bg-transparent text-gray-900 focus:bg-green-100 font-bold outline-none h-full" value={row.rw3} onChange={e => handleEditScore(row.id, 'rw3', Number(e.target.value))} /></td>
-                        <td className="p-0 border"><input type="number" className="w-full text-center p-1 bg-transparent text-gray-900 focus:bg-green-100 font-bold outline-none h-full" value={row.rw4} onChange={e => handleEditScore(row.id, 'rw4', Number(e.target.value))} /></td>
+                        <td className="p-0 border"><input type="number" className="w-full text-center p-1 bg-transparent text-gray-900 focus:bg-blue-100 outline-none h-full" value={row.ls1} onChange={e => handleEditScore(row.docId, 'ls1', Number(e.target.value))} /></td>
+                        <td className="p-0 border"><input type="number" className="w-full text-center p-1 bg-transparent text-gray-900 focus:bg-blue-100 outline-none h-full" value={row.ls2} onChange={e => handleEditScore(row.docId, 'ls2', Number(e.target.value))} /></td>
+                        <td className="p-0 border"><input type="number" className="w-full text-center p-1 bg-transparent text-gray-900 focus:bg-blue-100 font-bold outline-none h-full" value={row.ls3} onChange={e => handleEditScore(row.docId, 'ls3', Number(e.target.value))} /></td>
+                        <td className="p-0 border"><input type="number" className="w-full text-center p-1 bg-transparent text-gray-900 focus:bg-blue-100 outline-none h-full" value={row.ls4} onChange={e => handleEditScore(row.docId, 'ls4', Number(e.target.value))} /></td>
+                        <td className="p-0 border"><input type="number" className="w-full text-center p-1 bg-transparent text-gray-900 focus:bg-green-100 outline-none h-full" value={row.rw1} onChange={e => handleEditScore(row.docId, 'rw1', Number(e.target.value))} /></td>
+                        <td className="p-0 border"><input type="number" className="w-full text-center p-1 bg-transparent text-gray-900 focus:bg-green-100 outline-none h-full" value={row.rw2} onChange={e => handleEditScore(row.docId, 'rw2', Number(e.target.value))} /></td>
+                        <td className="p-0 border"><input type="number" className="w-full text-center p-1 bg-transparent text-gray-900 focus:bg-green-100 font-bold outline-none h-full" value={row.rw3} onChange={e => handleEditScore(row.docId, 'rw3', Number(e.target.value))} /></td>
+                        <td className="p-0 border"><input type="number" className="w-full text-center p-1 bg-transparent text-gray-900 focus:bg-green-100 font-bold outline-none h-full" value={row.rw4} onChange={e => handleEditScore(row.docId, 'rw4', Number(e.target.value))} /></td>
 
-                        {['cp_reading', 'cp_listening', 'cp_writing', 'cp_grammar'].map(field => (
+                        {['cp_reading', 'cp_listening', 'cp_writing', 'cp_grammar', 'att_attendance', 'att_homework'].map(field => (
                           <td key={field} className="p-0 border">
-                            <select className="w-full text-xs text-center bg-transparent text-gray-900 p-1 outline-none h-full" value={row[field]} onChange={e => handleEditScore(row.id, field, e.target.value)}>
-                              <option value="Excellent">Ex</option><option value="Good">Gd</option><option value="Bad">Bd</option>
-                            </select>
-                          </td>
-                        ))}
-
-                        {['att_attendance', 'att_homework'].map(field => (
-                          <td key={field} className="p-0 border">
-                            <select className="w-full text-xs text-center bg-transparent text-gray-900 p-1 outline-none h-full" value={row[field]} onChange={e => handleEditScore(row.id, field, e.target.value)}>
+                            <select className="w-full text-xs text-center bg-transparent text-gray-900 p-1 outline-none h-full" value={row[field]} onChange={e => handleEditScore(row.docId, field, e.target.value)}>
                               <option value="Excellent">Ex</option><option value="Good">Gd</option><option value="Bad">Bd</option>
                             </select>
                           </td>
@@ -410,7 +441,7 @@ const MickeyExcelApp = () => {
 
                         <td className={`p-2 border font-bold text-lg sticky right-10 z-20 shadow-l ${row.total >= 50 ? 'text-indigo-700 bg-indigo-50' : 'text-gray-700 bg-gray-100'}`}>{row.total}</td>
                         <td className="p-0 border text-center sticky right-0 z-20 bg-white group-hover:bg-gray-50">
-                          <button onClick={() => handleDeleteScoreRow(row.id)} className="w-full h-full flex items-center justify-center text-gray-400 bg-transparent hover:text-red-500 hover:bg-red-50 transition-colors"><Trash2 size={14}/></button>
+                          <button onClick={() => handleDeleteScoreRow(row.docId)} className="w-full h-full flex items-center justify-center text-gray-400 bg-transparent hover:text-red-500 hover:bg-red-50 transition-colors"><Trash2 size={14}/></button>
                         </td>
                       </tr>
                     ))}
@@ -430,6 +461,7 @@ const MickeyExcelApp = () => {
                 </select>
               </div>
 
+              {selectedStudentId ? (
               <div className="flex-1 bg-white p-8 rounded-lg shadow-lg border border-gray-400 flex flex-col gap-4 max-w-4xl mx-auto w-full overflow-y-auto">
                 <div className="flex justify-between items-end border-b-4 border-gray-800 pb-4">
                   <div>
@@ -469,70 +501,70 @@ const MickeyExcelApp = () => {
                   </table>
                 </div>
 
-                {/* 2. Class Progress */}
+                {/* 2. Class Progress & 3. Detail Analysis & Attitude & AI Comment */}
                 {studentReportData.length > 0 && (
-                  <div>
-                    <h3 className="font-bold text-lg mb-1 flex items-center gap-2"><FileText size={18}/> Class Progress</h3>
-                    <table className="w-full border-2 border-gray-800 text-sm text-center">
-                      <thead className="bg-gray-200 border-b-2 border-gray-800"><tr><th className="p-2 border-r border-gray-400 w-1/4">Reading</th><th className="p-2 border-r border-gray-400 w-1/4">Listening</th><th className="p-2 border-r border-gray-400 w-1/4">Writing</th><th className="p-2 w-1/4">Grammar</th></tr></thead>
-                      <tbody><tr className="border-b border-gray-800"><td className="p-2 border-r border-gray-400 font-bold text-indigo-700">{studentReportData[0].cp_reading}</td><td className="p-2 border-r border-gray-400 font-bold text-indigo-700">{studentReportData[0].cp_listening}</td><td className="p-2 border-r border-gray-400 font-bold text-indigo-700">{studentReportData[0].cp_writing}</td><td className="p-2 font-bold text-indigo-700">{studentReportData[0].cp_grammar}</td></tr></tbody>
-                    </table>
-                  </div>
-                )}
-                
-                {/* 3. Charts & Attitude & AI Comment */}
-                <div className="flex flex-col md:flex-row gap-6">
-                  <div className="flex-1 flex flex-col gap-4">
-                    <div className="h-56 border-2 border-gray-800 p-2 relative rounded-sm">
-                       <h4 className="absolute top-2 left-2 font-bold text-sm bg-white px-1 z-10">* Detail Analysis</h4>
-                       <ResponsiveContainer width="100%" height="100%">
-                        <RadarChart cx="50%" cy="55%" outerRadius="70%" data={[
-                            { subject: 'Recognize', A: ((studentReportData[0]?.ls1 || 0) / 5) * 100, original: studentReportData[0]?.ls1, full: 5 },
-                            { subject: 'Respond', A: ((studentReportData[0]?.ls2 || 0) / 5) * 100, original: studentReportData[0]?.ls2, full: 5 },
-                            { subject: 'L-Retell', A: ((studentReportData[0]?.ls3 || 0) / 15) * 100, original: studentReportData[0]?.ls3, full: 15 },
-                            { subject: 'Speak', A: ((studentReportData[0]?.ls4 || 0) / 5) * 100, original: studentReportData[0]?.ls4, full: 5 },
-                            { subject: 'Grammar', A: ((studentReportData[0]?.rw1 || 0) / 5) * 100, original: studentReportData[0]?.rw1, full: 5 },
-                            { subject: 'Writing', A: ((studentReportData[0]?.rw2 || 0) / 5) * 100, original: studentReportData[0]?.rw2, full: 5 },
-                            { subject: 'Reading', A: ((studentReportData[0]?.rw3 || 0) / 10) * 100, original: studentReportData[0]?.rw3, full: 10 },
-                            { subject: 'R-Retell', A: ((studentReportData[0]?.rw4 || 0) / 10) * 100, original: studentReportData[0]?.rw4, full: 10 },
-                          ]}>
-                          <PolarGrid gridType="polygon" />
-                          <PolarAngleAxis dataKey="subject" tick={{fontSize: 10, fontWeight: 'bold'}} />
-                          <PolarRadiusAxis angle={30} domain={[0, 100]} hide />
-                          <Radar name="Student" dataKey="A" stroke="#4f46e5" fill="#6366f1" fillOpacity={0.6} />
-                          <Legend verticalAlign="bottom" height={20}/>
-                          <RechartsTooltip formatter={(value, name, props) => [`${props.payload.original} / ${props.payload.full}`, '점수']} />
-                        </RadarChart>
-                      </ResponsiveContainer>
+                  <>
+                    <div>
+                      <h3 className="font-bold text-lg mb-1 flex items-center gap-2"><FileText size={18}/> Class Progress</h3>
+                      <table className="w-full border-2 border-gray-800 text-sm text-center">
+                        <thead className="bg-gray-200 border-b-2 border-gray-800"><tr><th className="p-2 border-r border-gray-400 w-1/4">Reading</th><th className="p-2 border-r border-gray-400 w-1/4">Listening</th><th className="p-2 border-r border-gray-400 w-1/4">Writing</th><th className="p-2 w-1/4">Grammar</th></tr></thead>
+                        <tbody><tr className="border-b border-gray-800"><td className="p-2 border-r border-gray-400 font-bold text-indigo-700">{studentReportData[0].cp_reading}</td><td className="p-2 border-r border-gray-400 font-bold text-indigo-700">{studentReportData[0].cp_listening}</td><td className="p-2 border-r border-gray-400 font-bold text-indigo-700">{studentReportData[0].cp_writing}</td><td className="p-2 font-bold text-indigo-700">{studentReportData[0].cp_grammar}</td></tr></tbody>
+                      </table>
                     </div>
-                    
-                    <div className="border-2 border-gray-800 p-4 rounded-sm flex flex-col justify-center bg-gray-50">
-                      <h3 className="font-bold text-lg mb-4 border-b-2 border-gray-300 pb-2">* Class Attitude</h3>
-                      <div className="space-y-4">
-                        <div className="flex justify-between items-center"><span className="font-medium text-gray-600">Attendance</span><span className={`font-bold px-3 py-1 rounded text-white ${studentReportData[0]?.att_attendance === 'Excellent' ? 'bg-green-600' : studentReportData[0]?.att_attendance === 'Good' ? 'bg-blue-500' : 'bg-red-400'}`}>{studentReportData[0]?.att_attendance || '-'}</span></div>
-                        <div className="flex justify-between items-center"><span className="font-medium text-gray-600">Homework</span><span className={`font-bold px-3 py-1 rounded text-white ${studentReportData[0]?.att_homework === 'Excellent' ? 'bg-green-600' : studentReportData[0]?.att_homework === 'Good' ? 'bg-blue-500' : 'bg-red-400'}`}>{studentReportData[0]?.att_homework || '-'}</span></div>
+
+                    <div className="flex flex-col md:flex-row gap-6">
+                      <div className="flex-1 flex flex-col gap-4">
+                        <div className="h-56 border-2 border-gray-800 p-2 relative rounded-sm">
+                          <h4 className="absolute top-2 left-2 font-bold text-sm bg-white px-1 z-10">* Detail Analysis</h4>
+                          <ResponsiveContainer width="100%" height="100%">
+                            <RadarChart cx="50%" cy="55%" outerRadius="70%" data={[
+                                { subject: 'Recognize', A: ((studentReportData[0]?.ls1 || 0) / 5) * 100, full: 5 },
+                                { subject: 'Respond', A: ((studentReportData[0]?.ls2 || 0) / 5) * 100, full: 5 },
+                                { subject: 'L-Retell', A: ((studentReportData[0]?.ls3 || 0) / 15) * 100, full: 15 },
+                                { subject: 'Speak', A: ((studentReportData[0]?.ls4 || 0) / 5) * 100, full: 5 },
+                                { subject: 'Grammar', A: ((studentReportData[0]?.rw1 || 0) / 5) * 100, full: 5 },
+                                { subject: 'Writing', A: ((studentReportData[0]?.rw2 || 0) / 5) * 100, full: 5 },
+                                { subject: 'Reading', A: ((studentReportData[0]?.rw3 || 0) / 10) * 100, full: 10 },
+                                { subject: 'R-Retell', A: ((studentReportData[0]?.rw4 || 0) / 10) * 100, full: 10 },
+                              ]}>
+                              <PolarGrid gridType="polygon" />
+                              <PolarAngleAxis dataKey="subject" tick={{fontSize: 10, fontWeight: 'bold'}} />
+                              <PolarRadiusAxis angle={30} domain={[0, 100]} hide />
+                              <Radar name="Student" dataKey="A" stroke="#4f46e5" fill="#6366f1" fillOpacity={0.6} />
+                              <Legend verticalAlign="bottom" height={20}/>
+                            </RadarChart>
+                          </ResponsiveContainer>
+                        </div>
+                        
+                        <div className="border-2 border-gray-800 p-4 rounded-sm flex flex-col justify-center bg-gray-50">
+                          <h3 className="font-bold text-lg mb-4 border-b-2 border-gray-300 pb-2">* Class Attitude</h3>
+                          <div className="space-y-4">
+                            <div className="flex justify-between items-center"><span className="font-medium text-gray-600">Attendance</span><span className={`font-bold px-3 py-1 rounded text-white ${studentReportData[0]?.att_attendance === 'Excellent' ? 'bg-green-600' : studentReportData[0]?.att_attendance === 'Good' ? 'bg-blue-500' : 'bg-red-400'}`}>{studentReportData[0]?.att_attendance || '-'}</span></div>
+                            <div className="flex justify-between items-center"><span className="font-medium text-gray-600">Homework</span><span className={`font-bold px-3 py-1 rounded text-white ${studentReportData[0]?.att_homework === 'Excellent' ? 'bg-green-600' : studentReportData[0]?.att_homework === 'Good' ? 'bg-blue-500' : 'bg-red-400'}`}>{studentReportData[0]?.att_homework || '-'}</span></div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex-1 border-2 border-gray-800 p-4 rounded-sm bg-indigo-50 relative">
+                        <div className="flex justify-between items-center mb-3 border-b-2 border-gray-300 pb-2">
+                          <h3 className="font-bold text-lg flex items-center gap-2">* Teacher's Comment</h3>
+                          <button onClick={generateAIComment} disabled={isGeneratingAI} className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-3 py-1 rounded text-xs font-bold shadow-md hover:shadow-lg transform active:scale-95 transition-all flex items-center gap-1 disabled:opacity-50">
+                            {isGeneratingAI ? <Loader2 className="animate-spin" size={14}/> : <Sparkles size={14} />}
+                            {isGeneratingAI ? '생성 중...' : 'AI 코멘트 생성'}
+                          </button>
+                        </div>
+                        <textarea 
+                          className="w-full h-64 p-3 border border-gray-300 rounded bg-white focus:ring-2 focus:ring-indigo-300 outline-none resize-none text-sm leading-relaxed text-gray-900"
+                          placeholder="AI 버튼을 누르거나 직접 입력하세요."
+                          value={studentReportData[0]?.teacher_comment || ''}
+                          onChange={(e) => handleEditScore(studentReportData[0].docId, 'teacher_comment', e.target.value)}
+                        />
                       </div>
                     </div>
-                  </div>
-
-                  {/* AI Teacher's Comment Section */}
-                  <div className="flex-1 border-2 border-gray-800 p-4 rounded-sm bg-indigo-50 relative">
-                    <div className="flex justify-between items-center mb-3 border-b-2 border-gray-300 pb-2">
-                      <h3 className="font-bold text-lg flex items-center gap-2">* Teacher's Comment</h3>
-                      <button onClick={generateAIComment} disabled={isGeneratingAI} className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-3 py-1 rounded text-xs font-bold shadow-md hover:shadow-lg transform active:scale-95 transition-all flex items-center gap-1 disabled:opacity-50">
-                        {isGeneratingAI ? <Loader2 className="animate-spin" size={14}/> : <Sparkles size={14} />}
-                        {isGeneratingAI ? '생성 중...' : 'AI 코멘트 생성'}
-                      </button>
-                    </div>
-                    <textarea 
-                      className="w-full h-64 p-3 border border-gray-300 rounded bg-white focus:ring-2 focus:ring-indigo-300 outline-none resize-none text-sm leading-relaxed text-gray-900"
-                      placeholder="AI 버튼을 누르거나 직접 입력하세요."
-                      value={studentReportData[0]?.teacher_comment || ''}
-                      onChange={(e) => handleEditScore(studentReportData[0].id, 'teacher_comment', e.target.value)}
-                    />
-                  </div>
-                </div>
+                  </>
+                )}
               </div>
+              ) : <div className="text-center p-10 text-gray-500">학생을 선택해주세요.</div>}
             </div>
           )}
 
