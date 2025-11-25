@@ -3,6 +3,25 @@ import { User, FileText, BarChart2, Save, Plus, Trash2, PieChart, UserPlus, X, S
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ComposedChart, Area, AreaChart, ScatterChart, Scatter, Pie, Cell, LabelList } from 'recharts';
 // import './index.css' 
 
+// [중요 2] Firebase 설정 (제공해주신 키 적용)
+const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
+};
+
+// Firebase 초기화
+let db;
+try {
+  const app = initializeApp(firebaseConfig);
+  db = getFirestore(app);
+} catch (error) {
+  console.error("Firebase 초기화 실패:", error);
+}
+
 // [중요] AI 기능을 사용하려면 아래 따옴표 안에 본인의 Gemini API 키를 입력하세요.
 const apiKey = "AIzaSyAmbc-5vJrht6Fy9zMdxmWbgeBF-Vuk5rE";
 
