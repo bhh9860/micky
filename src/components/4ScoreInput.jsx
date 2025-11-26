@@ -34,14 +34,55 @@ const ScoreInput = ({
       return classSubjects[selectedClassFilter];
     }
     return {
-      ls: Array(4).fill({ name: 'LS', max: 5 }),
-      rw: Array(4).fill({ name: 'RW', max: 5 })
+      ls: [],
+      rw: []
     };
   }, [classSubjects, selectedClassFilter]);
 
   const getShortName = (name) => name ? name.split('(')[0].trim() : '';
 
-  return (
+  // Helper to get subjects for a specific row
+  const getRowSubjects = (classInfo) => {
+    if (classInfo && classSubjects && classSubjects[classInfo]) {
+        return classSubjects[classInfo];
+    }
+    return {
+        ls: [],
+        rw: []
+    };
+  };
+
+  const maxSubjectCounts = useMemo(() => {
+      let maxLs = 0;
+      let maxRw = 0;
+
+      // 1. Current Filter Class
+      if (currentSubjects) {
+          maxLs = Math.max(maxLs, currentSubjects.ls.length);
+          maxRw = Math.max(maxRw, currentSubjects.rw.length);
+      }
+
+      // 2. Filtered Data Class Configs
+      if (filteredData) {
+          filteredData.forEach(row => {
+             const sClass = row.classInfo;
+             if (sClass && classSubjects && classSubjects[sClass]) {
+                 maxLs = Math.max(maxLs, classSubjects[sClass].ls?.length || 0);
+                 maxRw = Math.max(maxRw, classSubjects[sClass].rw?.length || 0);
+             }
+          });
+      }
+      
+      return { ls: Math.max(maxLs, 0), rw: Math.max(maxRw, 0) };
+  }, [filteredData, currentSubjects, classSubjects]);
+
+    const getClassProgressColor = (val) => {
+        if (val === 'EX' || val === 'Excellent') return 'text-indigo-600';
+        if (val === 'GD' || val === 'Good') return 'text-green-600';
+        return 'text-red-500';
+    };
+
+    return (
     <div className="bg-white p-6 rounded-lg shadow border border-gray-200 h-full flex flex-col">
       <div className="flex justify-between items-center mb-6">
         <div>
@@ -92,47 +133,120 @@ const ScoreInput = ({
             <tr>
               <th rowSpan="2" className="p-2 border bg-indigo-50 sticky left-0 z-40 w-24 cursor-pointer hover:bg-indigo-100 border-r-2 border-r-gray-300" onClick={() => handleSort('name')}>이름 <ArrowUpDown size={12} className="inline"/></th>
               <th rowSpan="2" className="p-2 border bg-indigo-50 w-20 cursor-pointer hover:bg-indigo-100" onClick={() => handleSort('classInfo')}>Class <ArrowUpDown size={12} className="inline"/></th>
-              <th colSpan="4" className="p-1 border bg-blue-100 text-blue-900 border-b-2 border-blue-300">Monthly Eval (L&S)</th>
-              <th colSpan="4" className="p-1 border bg-green-100 text-green-900 border-b-2 border-green-300">Monthly Eval (R&W)</th>
-              <th colSpan="4" className="p-1 border bg-purple-100 text-purple-900 border-b-2 border-purple-300">Class Progress</th>
+              <th colSpan={maxSubjectCounts.ls} className="p-1 border bg-blue-100 text-blue-900 border-b-2 border-blue-300">Monthly Eval (L&S)</th>
+              <th colSpan={maxSubjectCounts.rw} className="p-1 border bg-green-100 text-green-900 border-b-2 border-green-300">Monthly Eval (R&W)</th>
+              <th colSpan="1" className="p-1 border bg-purple-100 text-purple-900 border-b-2 border-purple-300">Class Progress</th>
               <th colSpan="2" className="p-1 border bg-yellow-100 text-yellow-900 border-b-2 border-yellow-300">Attitude</th>
               <th rowSpan="2" className="p-2 border bg-gray-200 w-12 sticky right-0 z-40 shadow-l cursor-pointer hover:bg-gray-300" onClick={() => handleSort('total')}>Total <ArrowUpDown size={12} className="inline"/></th>
+              <th rowSpan="2" className="p-2 border bg-gray-200 w-12 sticky right-0 z-40 shadow-l">Score(%)</th>
             </tr>
             <tr>
-              {currentSubjects.ls.map((subj, idx) => (
-                 <th key={`ls-h-${idx}`} className="p-1 border bg-blue-50 w-10" title={`Max: ${subj.max}`}>
-                   {getShortName(subj.name) || `LS${idx+1}`}
-                 </th>
-              ))}
-              {currentSubjects.rw.map((subj, idx) => (
-                 <th key={`rw-h-${idx}`} className="p-1 border bg-green-50 w-10" title={`Max: ${subj.max}`}>
-                    {getShortName(subj.name) || `RW${idx+1}`}
-                 </th>
-              ))}
-              <th className="p-1 border w-10 bg-purple-50">Read</th><th className="p-1 border w-10 bg-purple-50">List</th><th className="p-1 border w-10 bg-purple-50">Writ</th><th className="p-1 border w-10 bg-purple-50">Gram</th>
+              {Array.from({ length: maxSubjectCounts.ls }).map((_, idx) => {
+                  const subj = currentSubjects.ls[idx];
+                  return (
+                      <th key={`ls-h-${idx}`} className="p-1 border bg-blue-50 w-10" title={subj ? `Questions: ${subj.max}` : ''}>
+                          {subj ? (getShortName(subj.name) || `LS${idx+1}`) : '-'}
+                      </th>
+                  );
+              })}
+              {Array.from({ length: maxSubjectCounts.rw }).map((_, idx) => {
+                  const subj = currentSubjects.rw[idx];
+                  return (
+                      <th key={`rw-h-${idx}`} className="p-1 border bg-green-50 w-10" title={subj ? `Questions: ${subj.max}` : ''}>
+                          {subj ? (getShortName(subj.name) || `RW${idx+1}`) : '-'}
+                      </th>
+                  );
+              })}
+              <th className="p-1 border w-16 bg-purple-50">Grade</th>
               <th className="p-1 border w-10 bg-yellow-50">Att</th><th className="p-1 border w-10 bg-yellow-50">H.W</th>
             </tr>
           </thead>
           <tbody>
-            {filteredData.map((row) => (
+            {filteredData.map((row) => {
+              const rowSubjects = getRowSubjects(row.classInfo);
+              const rawMaxPoints = (rowSubjects.ls.reduce((acc, cur) => acc + (cur.max || 0), 0) + rowSubjects.rw.reduce((acc, cur) => acc + (cur.max || 0), 0));
+              const maxPoints = rawMaxPoints || 1;
+              const percentage = Math.round((row.total / maxPoints) * 100);
+
+              return (
               <tr key={row.id} className={`border-b hover:bg-indigo-50 transition-colors h-10 group ${row.isNew ? 'bg-gray-50 opacity-80' : 'bg-white'}`}>
                 <td className="p-2 border sticky left-0 bg-white z-20 font-bold text-indigo-600 text-left border-r-2 border-r-gray-200 cursor-pointer hover:underline truncate max-w-[100px]" onClick={() => handleNameClick(row.studentId)}>{row.name}</td>
                 <td className="p-2 border text-gray-500 bg-gray-50 truncate max-w-[80px]">{row.classInfo}</td>
-                {[1,2,3,4].map(i => <td key={`ls${i}`} className="p-0 border h-10"><input type="number" className="w-full h-full text-center text-lg bg-transparent outline-none p-0 m-0" value={row[`ls${i}`]} onChange={e => handleInputScoreChange(row.studentId, `ls${i}`, Number(e.target.value))} /></td>)}
-                {[1,2,3,4].map(i => <td key={`rw${i}`} className="p-0 border h-10"><input type="number" className="w-full h-full text-center text-lg bg-transparent outline-none p-0 m-0" value={row[`rw${i}`]} onChange={e => handleInputScoreChange(row.studentId, `rw${i}`, Number(e.target.value))} /></td>)}
-                {['cp_reading', 'cp_listening', 'cp_writing', 'cp_grammar', 'att_attendance', 'att_homework'].map(field => (
-                  <td key={field} className="p-0 border h-10"><select className="w-full h-full text-center bg-transparent outline-none text-xs p-0 m-0" value={row[field]} onChange={e => handleInputScoreChange(row.studentId, field, e.target.value)}><option value="Excellent">Ex</option><option value="Good">Gd</option><option value="Bad">Bd</option></select></td>
+                
+                {/* L&S Dynamic Cells */}
+                {Array.from({ length: maxSubjectCounts.ls }).map((_, idx) => {
+                    const subj = rowSubjects.ls[idx];
+                    if (subj) {
+                        return (
+                        <td key={`ls${idx+1}`} className="p-0 border h-10" title={subj.name || ''}>
+                            {subj.max > 0 ? (
+                                <input type="number" className="w-full h-full text-center text-lg bg-transparent outline-none p-0 m-0" value={row[`ls${idx+1}`]} onChange={e => handleInputScoreChange(row.studentId, `ls${idx+1}`, Number(e.target.value))} />
+                            ) : (
+                                <div className="w-full h-full flex items-center justify-center text-gray-300 bg-gray-50">-</div>
+                            )}
+                        </td>
+                        );
+                    } else {
+                        return <td key={`ls${idx+1}-empty`} className="p-0 border h-10 bg-gray-100"></td>;
+                    }
+                })}
+
+                {/* R&W Dynamic Cells */}
+                {Array.from({ length: maxSubjectCounts.rw }).map((_, idx) => {
+                    const subj = rowSubjects.rw[idx];
+                    if (subj) {
+                        return (
+                        <td key={`rw${idx+1}`} className="p-0 border h-10" title={subj.name || ''}>
+                            {subj.max > 0 ? (
+                                <input type="number" className="w-full h-full text-center text-lg bg-transparent outline-none p-0 m-0" value={row[`rw${idx+1}`]} onChange={e => handleInputScoreChange(row.studentId, `rw${idx+1}`, Number(e.target.value))} />
+                            ) : (
+                                <div className="w-full h-full flex items-center justify-center text-gray-300 bg-gray-50">-</div>
+                            )}
+                        </td>
+                        );
+                    } else {
+                        return <td key={`rw${idx+1}-empty`} className="p-0 border h-10 bg-gray-100"></td>;
+                    }
+                })}
+
+                {/* Class Progress (Auto Calculated or Manual) */}
+                <td className="p-0 border h-10">
+                    {rawMaxPoints > 0 ? (
+                        <div className={`w-full h-full flex items-center justify-center font-bold text-sm ${getClassProgressColor(row.classProgress)}`}>
+                            {!row.isNew && row.classProgress}
+                        </div>
+                    ) : (
+                        <select 
+                            className={`w-full h-full text-center bg-transparent outline-none font-bold text-sm cursor-pointer ${getClassProgressColor(row.classProgress || 'NI')}`}
+                            value={row.classProgress || 'NI'} 
+                            onChange={e => handleInputScoreChange(row.studentId, 'classProgress', e.target.value)}
+                        >
+                            <option value="EX" className="text-indigo-600 font-bold">EX</option>
+                            <option value="GD" className="text-green-600 font-bold">GD</option>
+                            <option value="NI" className="text-red-500 font-bold">NI</option>
+                        </select>
+                    )}
+                </td>
+
+                {/* Attitude Inputs */}
+                {['att_attendance', 'att_homework'].map(field => (
+                  <td key={field} className="p-0 border h-10"><select className="w-full h-full text-center bg-transparent outline-none text-xs p-0 m-0" value={row[field]} onChange={e => handleInputScoreChange(row.studentId, field, e.target.value)}><option value="Excellent">Ex</option><option value="Good">Gd</option><option value="NI">NI</option></select></td>
                 ))}
-                <td className="p-0 border text-center sticky right-0 z-20 bg-white group-hover:bg-gray-50 h-10">
-                      <div className="flex items-center justify-center gap-1 w-full h-full">
+                
+                <td className="p-0 border text-center sticky right-0 z-20 bg-white group-hover:bg-gray-50 h-10 relative">
+                      <div className="flex items-center justify-center w-full h-full relative">
                         <span className={`font-bold text-lg ${row.total >= 50 ? 'text-indigo-700' : 'text-gray-700'}`}>{row.total}</span>
                         {!row.isNew && (
-                            <button onClick={() => handleResetScore(row.studentId)} className="text-gray-300 hover:text-red-500 transition-colors bg-transparent" title="초기화 (0점/Good)"><RefreshCcw size={10}/></button>
+                            <button onClick={() => handleResetScore(row.studentId)} className="absolute right-1 text-gray-300 hover:text-red-500 transition-colors bg-transparent p-1" title="초기화 (0점/Good)"><RefreshCcw size={12}/></button>
                         )}
                       </div>
                   </td>
+                  <td className="p-0 border text-center sticky right-0 z-20 bg-white group-hover:bg-gray-50 h-10">
+                      <span className="font-bold text-indigo-600">{percentage}%</span>
+                  </td>
               </tr>
-            ))}
+              );
+            })}
             {filteredData.length === 0 && (
                 <tr>
                     <td colSpan="20" className="p-8 text-center text-gray-400">

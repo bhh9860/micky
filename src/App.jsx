@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { FileText, BarChart2, Save, User, UserCog, Sparkles, Settings } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, getDocs, setDoc, doc, writeBatch, getDoc } from 'firebase/firestore';
+import { getFirestore, collection, getDocs, setDoc, doc, writeBatch, getDoc, deleteDoc } from 'firebase/firestore';
 
 import StudentManagement from './components/1StudentManagement';
 import StudentDetail from './components/2StudentDetail';
@@ -48,60 +48,131 @@ Requirements:
 `;
 
 // --- 상수 및 설정 ---
-const INITIAL_GRADES = ['G3', 'G4', 'G5', 'G6'];
-const INITIAL_CLASSES = ['Pre Starter', 'Starter-1', 'Basic-1', 'Basic-2', 'Intermediate-1', 'Intermediate-2'];
-// [1번 요청] 초기 학교 리스트 추가
-const INITIAL_SCHOOLS = ['초등A교', '초등B교', '초등C교', '초등D교', '초등E교']; 
+const INITIAL_GRADES = [];
+const INITIAL_CLASSES = [];
+const INITIAL_SCHOOLS = []; 
 
-const NAMES = [
-  { k: '허지후', e: 'Jacob' }, { k: '김소피아', e: 'Sophia' }, { k: '이다니엘', e: 'Daniel' },
-  { k: '박올리비아', e: 'Olivia' }, { k: '최마이클', e: 'Michael' }, { k: '정에밀리', e: 'Emily' },
-  { k: '강데이빗', e: 'David' }, { k: '윤그레이스', e: 'Grace' }, { k: '송라이언', e: 'Ryan' }, { k: '임해나', e: 'Hannah' },
-  { k: '김준호', e: 'Junho' }, { k: '이서연', e: 'Seoyeon' }, { k: '박지성', e: 'Jisung' }, { k: '최수민', e: 'Sumin' },
-  { k: '정우성', e: 'Woosung' }, { k: '강하늘', e: 'Haneul' }, { k: '윤민수', e: 'Minsu' }, { k: '송지원', e: 'Jiwon' },
-  { k: '임재현', e: 'Jaehyun' }, { k: '한가인', e: 'Gain' }
-];
+const NAMES = [];
 
 const YEARS = Array.from({ length: 80 }, (_, i) => 2020 + i);
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 
-const DEFAULT_SUBJECT_CONFIG = {
-  ls: [
-    { name: 'Recog', max: 5 },
-    { name: 'Resp', max: 5 },
-    { name: 'Retell', max: 15 },
-    { name: 'Speak', max: 5 }
-  ],
-  rw: [
-    { name: 'Gram', max: 5 },
-    { name: 'Writ', max: 5 },
-    { name: 'Prac', max: 10 },
-    { name: 'Read', max: 10 }
-  ],
-    lsTitle: 'Listening & Speaking (L&S)',
-    rwTitle: 'Reading & Writing (R&W)'
-  };
+// Text Data for Initialization
+const CLASS_SCORE_TXT = `0. PHONICS
+       (Phonics 1) - Consonant- Beginning Sound(b, c, d, e, f, g, h, j, k, l)
+       (Phonics 1) - Consonant- Beginning Sound(m, n, p, q, r, s, t, v)
+       (Phonics 1) - Consonant- Beginning Sound(w, x, y, z)
+       (Phonics 1) - Short vowel (a, e, i, o, u)
+       (Phonics 2) - Long  vowels(-a-e, ee-, -i-e, -o-e, -u-e)
+       (Phonics 2) - Consonant Blends(sm, sn, sp, sw, cl, gl, pl, br, dr, fr, mp, nk, ft)
+       (Phonics 2) - Consonant Digraphs(ch, sh, th, wh, ch, ck, ng, sh)
 
-// Pre Starter 전용 기본 설정 (Added to fix crash)
-const PRE_STARTER_CONFIG = {
-  ls: [
-    { name: 'Listen and Recognize (듣고 이해하기)', max: 5 },
-    { name: 'Listen and Respond (질문 듣고 답하기)', max: 5 },
-    { name: 'Listen and Retell (대화를 듣고 질문에 답하기)', max: 5 },
-    { name: '', max: 0 } 
-  ],
-  rw: [
-    { name: 'Spell the words (철자쓰고 단어알기)', max: 5 },
-    { name: 'Look and Recognize (그림보고 이해하기)', max: 5 },
-    { name: 'Read and Retell (글을 읽고 질문에 답하기)', max: 10 },
-    { name: '', max: 0 } 
-  ],
-  lsTitle: 'Listening & Speaking (L&S)',
-  rwTitle: 'Reading & Writing (R&W)'
-};
+1. PRE STARTER
+       (LS) - Listen and Recognize (듣고 이해하기) - 5문항
+       (LS) - Listen and Respond (질문 듣고 답하기) - 5문항
+       (LS) - Listen and Retell (대화를 듣고 질문에 답하기) - 5문항
+       (RW) - Spell the words (철자쓰고 단어알기) - 5문항
+       (RW) - Look and Recognize (그림보고 이해하기) - 5문항
+       (RW) - Read and Retell (글을 읽고 질문에 답하기) - 10문항
+
+2. STARTER
+       (LS) - Listen and Recognize (듣고 이해하기) - 5문항
+       (LS) - Listen and Respond (질문 듣고 답하기) - 5문항
+       (LS) - Listen and Retell (대화를 듣고 질문에 답하기) - 10문항
+       (RW) - Sentence Completion (문법, 문장 이해하기) - 5문항
+       (RW) - Situational Writing (문장쓰기) - 5문항
+       (RW) - Reading and Retelling (글을 읽고 질문에 답하기) - 10문항
+
+3. Basic
+       (LS) - Listen and Recognize (듣고 이해하기) - 5문항
+       (LS) - Listen and Respond (질문 듣고 답하기) - 5문항
+       (LS) - Listen and Retell (대화를 듣고 질문에 답하기) - 15문항
+       (LS) - Listen and Speak (듣고 말하기) - 5문항
+       (RW) - Sentence Completion (문법, 문장 이해하기) - 5문항
+       (RW) - Situational Writing (문장쓰기) - 10문항
+       (RW) - Practical Reading and Retelling (실용적인 글을 읽고 질문에 답하기) - 10문항
+       (RW) - Reading and Retelling (글을 읽고 질문에 답하기) - 10문항
+
+4. Junior
+       (LS) - Listen and Respond (질문 듣고 답하기) - 10문항
+       (LS) - Listen and Retell (대화를 듣고 질문에 답하기) - 10문항
+       (LS) - Listen and Speak (듣고 말하기) - 10문항
+       (RW) - Sentence Completion (문법, 문장 이해하기) - 5문항
+       (RW) - Situational Writing (문장쓰기) - 5문항
+       (RW) - Practical Reading and Retelling (실용적인 글을 읽고 질문에 답하기) - 10문항
+       (RW) - Reading and Retelling (글을 읽고 질문에 답하기) - 10문항`;
+
+const ATTITUDE_SCORE = { 'Excellent': 10, 'Good': 7, 'NI': 3 };
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
+
+// Helper for parsing
+const parseClassSubjects = (text) => {
+  const lines = text.split('\n');
+  const config = {};
+  let currentClass = null;
+
+  lines.forEach(line => {
+    const classMatch = line.match(/^(\d+)\.\s+(.+)$/);
+    if (classMatch) {
+      let rawName = classMatch[2].trim();
+      // Normalize Class Name (Title Case)
+      let className = rawName.toLowerCase().replace(/\b\w/g, s => s.toUpperCase());
+      // Handle specific casing if needed, e.g. "Pre Starter" is fine.
+      if (rawName === 'PHONICS') className = 'Phonics'; // Special case if needed
+      
+      currentClass = className;
+      // Default structure
+      config[currentClass] = { 
+        ls: [], 
+        rw: [], 
+        lsTitle: 'Listening & Speaking (L&S)', 
+        rwTitle: 'Reading & Writing (R&W)' 
+      };
+      return;
+    }
+
+    if (!currentClass) return;
+    const trimmed = line.trim();
+    if (!trimmed) return;
+
+    // Parse (LS)/(RW)
+    // Regex: (LS) - Name - 5문항
+    const lsMatch = trimmed.match(/^\(LS\)\s-\s(.+?)\s-\s(\d+)문항/);
+    const rwMatch = trimmed.match(/^\(RW\)\s-\s(.+?)\s-\s(\d+)문항/);
+    // Regex: (Phonics 1) - Name (No max score specified, defaulting to 5)
+    const phonicsMatch = trimmed.match(/^\(Phonics\s(\d+)\)\s-\s(.+)$/);
+
+    if (lsMatch) {
+      config[currentClass].ls.push({ name: lsMatch[1].trim(), max: parseInt(lsMatch[2]) });
+    } else if (rwMatch) {
+      config[currentClass].rw.push({ name: rwMatch[1].trim(), max: parseInt(rwMatch[2]) });
+    } else if (phonicsMatch) {
+      const pLevel = phonicsMatch[1];
+      const pName = phonicsMatch[2].trim();
+      const pMax = 5; // Default max score for Phonics
+
+      if (pLevel === '1') {
+        config[currentClass].ls.push({ name: pName, max: pMax });
+        config[currentClass].lsTitle = 'Phonics 1';
+      } else {
+        config[currentClass].rw.push({ name: pName, max: pMax });
+        config[currentClass].rwTitle = 'Phonics 2';
+      }
+    }
+  });
   
-  const ATTITUDE_SCORE = { 'Excellent': 10, 'Good': 7, 'NI': 3 }; // [Fix] Bad -> NI
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
+  // Filter out classes with no subjects (like Phonics if we didn't add any)
+  // Or keep them? App expects ls/rw arrays.
+  // If Phonics has empty ls/rw, it might cause issues if we try to use it.
+  // Let's remove empty classes for safety unless they are valid.
+  Object.keys(config).forEach(key => {
+      if (config[key].ls.length === 0 && config[key].rw.length === 0) {
+          delete config[key];
+      }
+  });
+
+  return config;
+};
   
   const MickeyExcelApp = () => {
     const [activeTab, setActiveTab] = useState('input');
@@ -115,17 +186,7 @@ const PRE_STARTER_CONFIG = {
     const [schools, setSchools] = useState(INITIAL_SCHOOLS); 
     
     // [3번 요청] 클래스별 과목 설정 State
-    const [classSubjects, setClassSubjects] = useState(() => {
-      const initialConfig = {};
-      INITIAL_CLASSES.forEach(cls => {
-          if (cls === 'Pre Starter') {
-              initialConfig[cls] = JSON.parse(JSON.stringify(PRE_STARTER_CONFIG));
-          } else {
-              initialConfig[cls] = JSON.parse(JSON.stringify(DEFAULT_SUBJECT_CONFIG));
-          }
-      });
-      return initialConfig;
-    });
+    const [classSubjects, setClassSubjects] = useState({});
   
     // 클래스가 추가될 때 기본 과목 설정도 추가 (useEffect removed to avoid overwriting custom loaded config, handled in addClass)
   
@@ -136,7 +197,7 @@ const PRE_STARTER_CONFIG = {
     const [showConfig, setShowConfig] = useState(false); 
   
     // [2번 요청] 이름 입력 분리 (nameK, nameE)
-    const [newStudent, setNewStudent] = useState({ nameK: '', nameE: '', school: '', grade: 'G3', classInfo: 'Basic-1' });
+    const [newStudent, setNewStudent] = useState({ nameK: '', nameE: '', school: '', grade: 'G3', classInfo: '' });
     const [selectedStudentId, setSelectedStudentId] = useState('');
     const [statCriteria, setStatCriteria] = useState('class');
   
@@ -163,8 +224,9 @@ const PRE_STARTER_CONFIG = {
               const classesDoc = await getDoc(doc(db, 'settings', 'classList')); // [Fix] Load classes
   
               // Load Classes
+              let loadedClasses = [];
               if (classesDoc.exists()) {
-                  const loadedClasses = classesDoc.data().list;
+                  loadedClasses = classesDoc.data().list;
                   if (loadedClasses && loadedClasses.length > 0) setClasses(loadedClasses);
               } else {
                   await setDoc(doc(db, 'settings', 'classList'), { list: INITIAL_CLASSES });
@@ -173,23 +235,14 @@ const PRE_STARTER_CONFIG = {
               // Load Subjects
               if (configDoc.exists()) {
                   setClassSubjects(configDoc.data());
-              } else {
-                  // Initialize settings in DB if not present
-                  const initialConfig = {};
-                  INITIAL_CLASSES.forEach(cls => {
-                      if (cls === 'Pre Starter') {
-                          initialConfig[cls] = JSON.parse(JSON.stringify(PRE_STARTER_CONFIG));
-                      } else {
-                          initialConfig[cls] = JSON.parse(JSON.stringify(DEFAULT_SUBJECT_CONFIG));
-                      }
-                  });
-                  setClassSubjects(initialConfig);
-                  await setDoc(doc(db, 'settings', 'subjectConfig'), initialConfig);
-              }
+              } 
   
-              if (sSnapshot.empty) {
-                  console.log("Database empty. Seeding data...");
-                  await seedDatabase();
+              // Check if Phonics is missing (Migration/Update Trigger)
+              const shouldInit = (sSnapshot.empty && !classesDoc.exists()) || (loadedClasses.length > 0 && !loadedClasses.includes('Phonics'));
+
+              if (shouldInit) {
+                  console.log("Database update required (Phonics or Empty). Initializing...");
+                  await initializeDatabase();
               } else {
                   const sData = sSnapshot.docs.map(doc => doc.data());
                   const scData = scSnapshot.docs.map(doc => doc.data());
@@ -206,116 +259,176 @@ const PRE_STARTER_CONFIG = {
       fetchData();
     }, []);
   
-    const seedDatabase = async () => {
-        const batch = writeBatch(db);
-        const generatedStudents = [];
-        const generatedScores = [];
-  
-        // 1. Create 20 Students
-        for(let i = 0; i < 20; i++) {
-            const nameIdx = i % NAMES.length;
-            const student = {
-                id: `S${String(i + 1).padStart(3, '0')}`,
-                nameK: NAMES[nameIdx].k,
-                nameE: NAMES[nameIdx].e + (i >= NAMES.length ? ' Jr.' : ''),
-                school: INITIAL_SCHOOLS[Math.floor(Math.random() * INITIAL_SCHOOLS.length)],
-                grade: INITIAL_GRADES[Math.floor(Math.random() * INITIAL_GRADES.length)],
-                classInfo: INITIAL_CLASSES[Math.floor(Math.random() * INITIAL_CLASSES.length)],
-            };
-            generatedStudents.push(student);
-            const sRef = doc(db, 'students', student.id);
-            batch.set(sRef, student);
-        }
-  
-        // 2. Create Scores (2023.01 ~ 2025.10)
-        // Period: Jan 2023 to Oct 2025
-        const startDate = new Date(2023, 0, 1); // Jan 2023
-        const endDate = new Date(2025, 9, 1);   // Oct 2025
+    const initializeDatabase = async () => {
+        if (!db) return;
         
-        let currentDate = new Date(startDate);
-        
-        while (currentDate <= endDate) {
-            const yyyy = currentDate.getFullYear();
-            const mm = String(currentDate.getMonth() + 1).padStart(2, '0');
-            const dateStr = `${yyyy}-${mm}`;
-  
-            generatedStudents.forEach(student => {
-                const rand = Math.random();
-                let tier = 'MID'; 
-                if (rand < 0.3) tier = 'HIGH'; else if (rand > 0.8) tier = 'LOW'; 
-                const getScore = (max) => Math.round(max * (tier === 'HIGH' ? 0.9 : tier === 'MID' ? 0.7 : 0.5));
-                const getEval = () => (tier === 'HIGH' ? 'Excellent' : tier === 'MID' ? 'Good' : 'NI'); // Bad -> NI
-  
-                const score = {
-                    id: `${Date.now()}_${student.id}_${dateStr}`,
-                    examId: `${yyyy}년 ${Number(mm)}월 평가`,
-                    date: dateStr,
-                    studentId: student.id,
-                    classInfo: student.classInfo, // Store current class
-                    ls1: getScore(5), ls2: getScore(5), ls3: getScore(15), ls4: getScore(5),
-                    rw1: getScore(5), rw2: getScore(5), rw3: getScore(10), rw4: getScore(10),
-                    cp_reading: getEval(), cp_listening: getEval(), cp_writing: getEval(), cp_grammar: getEval(),
-                    att_attendance: getEval(), att_homework: getEval(),
-                    teacher_comment: ''
-                };
-                generatedScores.push(score);
-                const scRef = doc(db, 'scores', score.id.toString());
-                batch.set(scRef, score);
-            });
-  
-            currentDate.setMonth(currentDate.getMonth() + 1);
+        try {
+            console.log("Initializing Database from Class Score Text...");
+            
+            // 1. Parse Config
+            const parsedConfig = parseClassSubjects(CLASS_SCORE_TXT);
+            const classList = Object.keys(parsedConfig);
+            
+            if (classList.length === 0) {
+                alert("텍스트 파일 파싱 실패: 클래스를 찾을 수 없습니다.");
+                return;
+            }
+
+            const batch = writeBatch(db);
+
+            // 2. Save Settings
+            const subjectConfigRef = doc(db, 'settings', 'subjectConfig');
+            batch.set(subjectConfigRef, parsedConfig);
+            
+            const classListRef = doc(db, 'settings', 'classList');
+            batch.set(classListRef, { list: classList });
+
+            // 3. Commit
+            await batch.commit();
+            
+            // 4. Update Local State
+            setClassSubjects(parsedConfig);
+            setClasses(classList);
+            
+            alert(`초기화 완료! ${classList.length}개 클래스가 생성되었습니다.\n(${classList.join(', ')})`);
+            
+        } catch (e) {
+            console.error("DB Init Error:", e);
+            alert("초기화 중 오류가 발생했습니다.");
         }
-  
-        await batch.commit();
-        setStudents(generatedStudents);
-        setScores(generatedScores);
-        if (generatedStudents.length > 0) setSelectedStudentId(generatedStudents[0].id);
-        alert("데이터 시딩 완료! (학생 20명, 2023.01~2025.10)");
     };
+
   
   
     const getStudentInfo = (id) => students.find(s => s.id === id);
   
     // Helper to get max points
     const getMaxPoints = (classInfo) => {
-        const config = classSubjects[classInfo] || DEFAULT_SUBJECT_CONFIG;
+        const config = classSubjects[classInfo] || { ls: [], rw: [] };
         const lsMax = (config.ls || []).reduce((sum, subj) => sum + (subj.max || 0), 0);
         const rwMax = (config.rw || []).reduce((sum, subj) => sum + (subj.max || 0), 0);
         return lsMax + rwMax || 60; 
     };
   
-    // --- 데이터 가공 ---
-    const enrichedScores = useMemo(() => {
-      return scores.map(score => {
-        const lsTotal = (Number(score.ls1)||0) + (Number(score.ls2)||0) + (Number(score.ls3)||0) + (Number(score.ls4)||0);
-        const rwTotal = (Number(score.rw1)||0) + (Number(score.rw2)||0) + (Number(score.rw3)||0) + (Number(score.rw4)||0);
-        const total = lsTotal + rwTotal;
-        const sInfo = getStudentInfo(score.studentId);
-        
-        // [Fix] Calculate Class Progress (Auto)
-        const currentClassInfo = score.classInfo || sInfo?.classInfo || 'Basic-1';
-        const max = getMaxPoints(currentClassInfo);
-        const percentage = max > 0 ? (total / max) * 100 : 0;
-        let classProgress = 'NI';
-        if (percentage >= 90) classProgress = 'Excellent';
-        else if (percentage >= 60) classProgress = 'Good';
+        // --- 데이터 가공 ---
   
-        // 이름 조합
-        const displayName = sInfo ? `${sInfo.nameE} (${sInfo.nameK})` : 'Unknown';
+        const enrichedScores = useMemo(() => {
   
-        return {
-          ...score,
-          name: displayName, 
-          classInfo: score.classInfo || '-', 
-          grade: sInfo?.grade || '-',
-          lsTotal,
-          rwTotal,
-          total,
-          classProgress, // [Fix] Auto calculated CP
-          percentage     // Store percentage for use in tables
-        };
-      });
-    }, [scores, students, classSubjects]); // Added classSubjects dependency
+          return scores.map(score => {
+  
+            const sInfo = getStudentInfo(score.studentId);
+  
+            const currentClassInfo = score.classInfo || sInfo?.classInfo || classes[0] || '';
+  
+            const config = classSubjects[currentClassInfo] || { ls: [], rw: [] };
+  
+    
+  
+            // [Fix] Dynamic Total Calculation
+  
+            let lsTotal = 0;
+  
+            if (config.ls) {
+  
+                config.ls.forEach((_, idx) => {
+  
+                    lsTotal += Number(score[`ls${idx + 1}`]) || 0;
+  
+                });
+  
+            } else { // Fallback
+  
+                 lsTotal = (Number(score.ls1)||0) + (Number(score.ls2)||0) + (Number(score.ls3)||0) + (Number(score.ls4)||0);
+  
+            }
+  
+    
+  
+            let rwTotal = 0;
+  
+            if (config.rw) {
+  
+                config.rw.forEach((_, idx) => {
+  
+                    rwTotal += Number(score[`rw${idx + 1}`]) || 0;
+  
+                });
+  
+            } else { // Fallback
+  
+                 rwTotal = (Number(score.rw1)||0) + (Number(score.rw2)||0) + (Number(score.rw3)||0) + (Number(score.rw4)||0);
+  
+            }
+  
+    
+  
+                            const total = lsTotal + rwTotal;
+  
+    
+  
+                            const max = getMaxPoints(currentClassInfo);
+  
+    
+  
+                            const percentage = max > 0 ? (total / max) * 100 : 0;
+  
+    
+  
+                            
+  
+    
+  
+                            let classProgress = 'NI';
+  
+    
+  
+                            if (percentage >= 90) classProgress = 'EX';
+  
+    
+  
+                            else if (percentage >= 60) classProgress = 'GD';
+  
+    
+  
+                    
+  
+    
+  
+                            // 이름 조합
+  
+    
+  
+            // 이름 조합
+  
+            const displayName = sInfo ? `${sInfo.nameE} (${sInfo.nameK})` : 'Unknown';
+  
+      
+  
+            return {
+  
+              ...score,
+  
+              name: displayName, 
+  
+              classInfo: currentClassInfo, 
+  
+              grade: sInfo?.grade || '-',
+  
+              lsTotal,
+  
+              rwTotal,
+  
+              total,
+  
+              classProgress, 
+  
+              percentage     
+  
+            };
+  
+          });
+  
+        }, [scores, students, classSubjects, getMaxPoints, getStudentInfo]);
   
     // [3번 탭] 점수 입력용 데이터
     const inputTableData = useMemo(() => {
@@ -338,8 +451,7 @@ const PRE_STARTER_CONFIG = {
           examId: `${inputYear}년 ${inputMonth}월 평가`,
           ls1: 0, ls2: 0, ls3: 0, ls4: 0,
           rw1: 0, rw2: 0, rw3: 0, rw4: 0,
-          cp_reading: 'Good', cp_listening: 'Good', cp_writing: 'Good', cp_grammar: 'Good', // Unused but kept for structure
-          att_attendance: 'Good', att_homework: 'Good',
+          att_attendance: 'Good', att_homework: 'Good', // 태도는 Good 기본
           lsTotal: 0, rwTotal: 0, total: 0,
           classProgress: 'NI', // Default
           percentage: 0
@@ -401,7 +513,8 @@ const PRE_STARTER_CONFIG = {
           cp_reading: 'Good', cp_listening: 'Good', cp_writing: 'Good', cp_grammar: 'Good',
           att_attendance: 'Good', att_homework: 'Good',
           isDummy: true,
-          classProgress: 'NI',
+          classInfo: '', // [Fix] 더미 데이터는 '미지정' 상태로 시작
+          classProgress: '', // [Fix] 삭제된 데이터(더미)는 등급 표시 없음
           percentage: 0
         };
       });
@@ -437,7 +550,7 @@ const PRE_STARTER_CONFIG = {
 
     // Helper to get max points for a specific class
     const getMaxPoints = (classInfo) => {
-        const config = classSubjects[classInfo] || DEFAULT_SUBJECT_CONFIG;
+        const config = classSubjects[classInfo] || { ls: [], rw: [] };
         const lsMax = (config.ls || []).reduce((sum, subj) => sum + (subj.max || 0), 0);
         const rwMax = (config.rw || []).reduce((sum, subj) => sum + (subj.max || 0), 0);
         return lsMax + rwMax || 60; // Default to 60 if calc fails
@@ -551,7 +664,7 @@ const PRE_STARTER_CONFIG = {
     const sortedHistory = [...studentHistory].sort((a, b) => new Date(a.date) - new Date(b.date));
 
     if (graphMode === 'monthly') {
-      return sortedHistory.map(s => ({ name: s.date, score: s.total }));
+      return sortedHistory.map(s => ({ name: s.date, score: s.percentage }));
     } else if (graphMode === 'quarterly') {
       const qMap = {};
       sortedHistory.forEach(s => {
@@ -560,7 +673,7 @@ const PRE_STARTER_CONFIG = {
          const q = Math.ceil((d.getMonth() + 1) / 3);
          const key = `${year}.${q}Q`;
          if (!qMap[key]) qMap[key] = [];
-         qMap[key].push(s.total);
+         qMap[key].push(s.percentage);
       });
       return Object.keys(qMap).sort().map(key => ({
          name: key,
@@ -572,7 +685,7 @@ const PRE_STARTER_CONFIG = {
         const d = new Date(s.date);
         const year = d.getFullYear();
         const monthIndex = d.getMonth();
-        data[monthIndex][year] = s.total; 
+        data[monthIndex][year] = s.percentage; 
       });
       return data;
     }
@@ -624,7 +737,7 @@ const PRE_STARTER_CONFIG = {
   };
 
   const getMaxScoreForField = (classInfo, field) => {
-      const config = classSubjects[classInfo] || DEFAULT_SUBJECT_CONFIG;
+      const config = classSubjects[classInfo] || { ls: [], rw: [] };
       let max = 5; // default
       if (field.startsWith('ls')) {
           const idx = parseInt(field.replace('ls', '')) - 1;
@@ -676,7 +789,7 @@ const PRE_STARTER_CONFIG = {
     const targetDate = `${inputYear}-${String(inputMonth).padStart(2, '0')}`;
     const existingScoreIndex = scores.findIndex(s => s.studentId === studentId && s.date === targetDate);
     const student = students.find(s => s.id === studentId);
-    const classInfo = student?.classInfo || 'Basic-1';
+    const classInfo = student?.classInfo || classes[0] || '';
 
     let cleanValue = value;
     if (typeof value === 'number') {
@@ -758,15 +871,34 @@ const PRE_STARTER_CONFIG = {
 
     if (String(scoreId).startsWith('dummy_')) {
       const dateStr = scoreId.replace('dummy_', '');
+      // [Fix] Recalculate total/progress for new dummy score
+      const sClass = selectedStudentInfo.classInfo;
+      const max = getMaxPoints(sClass);
+      const tempScore = { 
+          ls1: 0, ls2: 0, ls3: 0, ls4: 0, 
+          rw1: 0, rw2: 0, rw3: 0, rw4: 0, 
+          [field]: cleanValue 
+      };
+      const newTotal = Object.keys(tempScore).reduce((sum, key) => {
+          if (key.startsWith('ls') || key.startsWith('rw')) return sum + (Number(tempScore[key]) || 0);
+          return sum;
+      }, 0);
+      const percent = max > 0 ? (newTotal / max) * 100 : 0;
+      let newProgress = 'NI';
+      if (percent >= 90) newProgress = 'EX'; else if (percent >= 60) newProgress = 'GD';
+
       const newScore = {
           id: `${Date.now()}_${selectedStudentId}_${dateStr}`,
           examId: `${dateStr.split('-')[0]}년 ${parseInt(dateStr.split('-')[1])}월 평가`,
           date: dateStr,
           studentId: selectedStudentId,
-          classInfo: selectedStudentInfo.classInfo, // [Fix] 더미 데이터에서 생성 시 현재 클래스 저장
+          classInfo: sClass, 
           ls1: 0, ls2: 0, ls3: 0, ls4: 0,
           rw1: 0, rw2: 0, rw3: 0, rw4: 0,
-          lsTotal: 0, rwTotal: 0, total: 0,
+          lsTotal: 0, rwTotal: 0, 
+          total: newTotal,
+          classProgress: newProgress,
+          percentage: percent,
           cp_reading: 'Good', cp_listening: 'Good', cp_writing: 'Good', cp_grammar: 'Good',
           att_attendance: 'Good', att_homework: 'Good',
           teacher_comment: '',
@@ -775,9 +907,53 @@ const PRE_STARTER_CONFIG = {
        setScores([...scores, newScore]);
        scoreToSave = newScore;
     } else {
-      const updatedScores = scores.map(s => s.id === scoreId ? { ...s, [field]: cleanValue } : s);
+      const targetScore = scores.find(s => s.id === scoreId);
+      const updatedScore = { ...targetScore, [field]: cleanValue };
+      
+      // [Fix] Recalculate total/progress immediately based on DYNAMIC config
+      const sClass = updatedScore.classInfo || classes[0] || '';
+      const config = classSubjects[sClass] || { ls: [], rw: [] };
+      
+      let newTotal = 0;
+      let lsTotal = 0;
+      let rwTotal = 0;
+
+      // Sanitize & Calculate LS
+      const lsCount = config.ls ? config.ls.length : 4;
+      for (let i = 1; i <= 4; i++) {
+          if (i > lsCount) {
+              updatedScore[`ls${i}`] = 0; // Reset hidden scores
+          } else {
+              lsTotal += Number(updatedScore[`ls${i}`]) || 0;
+          }
+      }
+
+      // Sanitize & Calculate RW
+      const rwCount = config.rw ? config.rw.length : 4;
+      for (let i = 1; i <= 4; i++) {
+          if (i > rwCount) {
+              updatedScore[`rw${i}`] = 0; // Reset hidden scores
+          } else {
+              rwTotal += Number(updatedScore[`rw${i}`]) || 0;
+          }
+      }
+
+      newTotal = lsTotal + rwTotal;
+      const max = getMaxPoints(sClass);
+      
+      const percent = max > 0 ? (newTotal / max) * 100 : 0;
+      let newProgress = 'NI';
+      if (percent >= 90) newProgress = 'EX'; else if (percent >= 60) newProgress = 'GD';
+
+      updatedScore.lsTotal = lsTotal;
+      updatedScore.rwTotal = rwTotal;
+      updatedScore.total = newTotal;
+      updatedScore.classProgress = newProgress;
+      updatedScore.percentage = percent;
+
+      const updatedScores = scores.map(s => s.id === scoreId ? updatedScore : s);
       setScores(updatedScores);
-      scoreToSave = updatedScores.find(s => s.id === scoreId);
+      scoreToSave = updatedScore;
     }
     
     // Firebase Save
@@ -788,10 +964,12 @@ const PRE_STARTER_CONFIG = {
     }
   };
 
-  const handleDeleteDetailScore = (scoreId) => {
+  const handleDeleteDetailScore = async (scoreId) => {
     if(window.confirm('삭제하시겠습니까?')) {
       setScores(scores.filter(s => s.id !== scoreId));
-      // DB deletion logic omitted for brevity, but would use deleteDoc
+      try {
+          await deleteDoc(doc(db, 'scores', scoreId));
+      } catch(e) { console.error("Error deleting score:", e); }
     }
   };
 
@@ -859,7 +1037,7 @@ const PRE_STARTER_CONFIG = {
       const result = await response.json();
       const comment = result.candidates?.[0]?.content?.parts?.[0]?.text || "생성 실패";
       setScores(scores.map(s => s.id === data.id ? { ...s, teacher_comment: comment } : s));
-    } catch (error) { alert('AI 오류 발생'); } finally { setIsGeneratingAI(false); }
+    } catch { alert('AI 오류 발생'); } finally { setIsGeneratingAI(false); }
   };
 
   // [1번 요청] 학년/클래스/학교 관리 핸들러
@@ -876,7 +1054,9 @@ const PRE_STARTER_CONFIG = {
       
       // 새 클래스에 대한 기본 과목 설정 추가
       const newSubjectConfig = { ...classSubjects };
-      newSubjectConfig[newClassInput] = JSON.parse(JSON.stringify(DEFAULT_SUBJECT_CONFIG));
+      // Use empty config for new class or a default template?
+      // Let's use a  default if not in file, or just empty.
+      newSubjectConfig[newClassInput] = { ls: [], rw: [], lsTitle: 'L&S', rwTitle: 'R&W' }; 
       setClassSubjects(newSubjectConfig);
 
       // Firebase 저장
@@ -1045,6 +1225,10 @@ const PRE_STARTER_CONFIG = {
                     classes={classes}
                     classSubjects={classSubjects}
                     handleUpdateClassSubject={handleUpdateClassSubject}
+                    newClassInput={newClassInput}
+                    setNewClassInput={setNewClassInput}
+                    handleAddClass={handleAddClass}
+                    handleDeleteClass={handleDeleteClass}
                   />
                 )}
 
