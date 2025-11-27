@@ -191,9 +191,11 @@ const StudentDetail = ({
   const getShortName = (name) => name ? name.split('(')[0].trim() : '';
 
   const getClassProgressColor = (val) => {
+    if (!val) return 'text-gray-400';
     if (val === 'EX' || val === 'Excellent') return 'text-indigo-600';
     if (val === 'GD' || val === 'Good') return 'text-green-600';
-    return 'text-red-500';
+    if (val === 'NI') return 'text-red-500';
+    return 'text-gray-600';
   };
 
   // [수정] 대시보드 그래프 순서 재구성: Fixed(1~10) -> Dynamic(11~)
@@ -382,10 +384,11 @@ const StudentDetail = ({
                                  </div>
                              ) : (
                                  <select 
-                                    className={`w-full h-full text-center bg-transparent outline-none font-bold text-sm cursor-pointer ${getClassProgressColor(score.classProgress || 'NI')}`}
-                                    value={score.classProgress || 'NI'}
+                                    className={`w-full h-full text-center bg-transparent outline-none font-bold text-sm cursor-pointer ${getClassProgressColor(score.classProgress)}`}
+                                    value={score.classProgress || ''}
                                     onChange={(e) => handleDetailScoreChange(score.id, 'classProgress', e.target.value)}
                                  >
+                                    <option value="" className="text-gray-400">-</option>
                                     <option value="EX" className="text-indigo-600 font-bold">EX</option>
                                     <option value="GD" className="text-green-600 font-bold">GD</option>
                                     <option value="NI" className="text-red-500 font-bold">NI</option>

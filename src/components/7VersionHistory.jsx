@@ -4,8 +4,19 @@ import { Clock, GitCommit, CheckCircle2 } from 'lucide-react';
 const VersionHistory = () => {
   const history = [
     {
-      version: '1.19',
-      date: '2025-11-26',
+      version: '2.01',
+      date: '2025-11-27',
+      changes: [
+        '기능 버그 오류 수정: 세부학생관리(Tab 2)에서 Grade(Class Progress)를 수동으로 변경해도 자동 계산 로직에 의해 값이 바뀌지 않던 문제 해결',
+        '기능 버그 오류 수정: 학교(School) 및 학년(Grade) 목록 추가 시 데이터베이스(Firestore)에 영구 저장되도록 수정 (새로고침 시 데이터 유지)',
+        '기능 버그 오류 수정: 점수 입력(Tab 4)의 초기화 버튼 클릭 시 DB에서도 해당 점수 데이터가 실제로 삭제되도록 수정',
+        '기능 버그 오류 수정: Phonics 클래스 학생의 경우, 점수가 없으면 Grade(Class Progress)가 기본적으로 빈 값(선택 안 함)으로 표시되도록 수정',
+        '기능 버그 오류 수정: 숫자 입력 필드(Number Input)의 화살표 버튼 스타일 및 터치 영역 개선'
+      ]
+    },
+    {
+      version: '2.0',
+      date: '2025-11-27',
       changes: [
         '데이터베이스 초기화 도구 강화: "데이터 시딩" 실행 시 학생 데이터뿐만 아니라 클래스별 과목 설정(Subject Config)과 클래스 목록(Class List)까지 한 번에 자동 설정되도록 기능 추가',
         '설정 동기화: classScore.txt의 최신 과목 구성을 Firestore DB 설정에 즉시 반영'

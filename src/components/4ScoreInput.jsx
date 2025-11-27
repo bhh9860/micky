@@ -77,9 +77,11 @@ const ScoreInput = ({
   }, [filteredData, currentSubjects, classSubjects]);
 
     const getClassProgressColor = (val) => {
+        if (!val) return 'text-gray-400';
         if (val === 'EX' || val === 'Excellent') return 'text-indigo-600';
         if (val === 'GD' || val === 'Good') return 'text-green-600';
-        return 'text-red-500';
+        if (val === 'NI') return 'text-red-500';
+        return 'text-gray-600';
     };
 
     return (
@@ -217,10 +219,11 @@ const ScoreInput = ({
                         </div>
                     ) : (
                         <select 
-                            className={`w-full h-full text-center bg-transparent outline-none font-bold text-sm cursor-pointer ${getClassProgressColor(row.classProgress || 'NI')}`}
-                            value={row.classProgress || 'NI'} 
+                            className={`w-full h-full text-center bg-transparent outline-none font-bold text-sm cursor-pointer ${getClassProgressColor(row.classProgress)}`}
+                            value={row.classProgress || ''} 
                             onChange={e => handleInputScoreChange(row.studentId, 'classProgress', e.target.value)}
                         >
+                            <option value="" className="text-gray-400">-</option>
                             <option value="EX" className="text-indigo-600 font-bold">EX</option>
                             <option value="GD" className="text-green-600 font-bold">GD</option>
                             <option value="NI" className="text-red-500 font-bold">NI</option>

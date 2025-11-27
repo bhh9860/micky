@@ -221,8 +221,10 @@ const parseClassSubjects = (text) => {
               const sSnapshot = await getDocs(collection(db, 'students'));
               const scSnapshot = await getDocs(collection(db, 'scores'));
               const configDoc = await getDoc(doc(db, 'settings', 'subjectConfig'));
-              const classesDoc = await getDoc(doc(db, 'settings', 'classList')); // [Fix] Load classes
-  
+              const classesDoc = await getDoc(doc(db, 'settings', 'classList')); 
+              const schoolsDoc = await getDoc(doc(db, 'settings', 'schoolList')); 
+              const gradesDoc = await getDoc(doc(db, 'settings', 'gradeList')); 
+
               // Load Classes
               let loadedClasses = [];
               if (classesDoc.exists()) {
@@ -230,6 +232,22 @@ const parseClassSubjects = (text) => {
                   if (loadedClasses && loadedClasses.length > 0) setClasses(loadedClasses);
               } else {
                   await setDoc(doc(db, 'settings', 'classList'), { list: INITIAL_CLASSES });
+              }
+
+              // Load Schools
+              if (schoolsDoc.exists()) {
+                  const loadedSchools = schoolsDoc.data().list;
+                  if (loadedSchools && loadedSchools.length > 0) setSchools(loadedSchools);
+              } else {
+                  await setDoc(doc(db, 'settings', 'schoolList'), { list: INITIAL_SCHOOLS });
+              }
+
+              // Load Grades
+              if (gradesDoc.exists()) {
+                  const loadedGrades = gradesDoc.data().list;
+                  if (loadedGrades && loadedGrades.length > 0) setGrades(loadedGrades);
+              } else {
+                  await setDoc(doc(db, 'settings', 'gradeList'), { list: INITIAL_GRADES });
               }
   
               // Load Subjects
@@ -282,6 +300,13 @@ const parseClassSubjects = (text) => {
             
             const classListRef = doc(db, 'settings', 'classList');
             batch.set(classListRef, { list: classList });
+            
+            // Save Default Schools/Grades if needed during Init
+            const schoolListRef = doc(db, 'settings', 'schoolList');
+            batch.set(schoolListRef, { list: INITIAL_SCHOOLS });
+            
+            const gradeListRef = doc(db, 'settings', 'gradeList');
+            batch.set(gradeListRef, { list: INITIAL_GRADES });
 
             // 3. Commit
             await batch.commit();
@@ -289,6 +314,8 @@ const parseClassSubjects = (text) => {
             // 4. Update Local State
             setClassSubjects(parsedConfig);
             setClasses(classList);
+            setSchools(INITIAL_SCHOOLS);
+            setGrades(INITIAL_GRADES);
             
             alert(`초기화 완료! ${classList.length}개 클래스가 생성되었습니다.\n(${classList.join(', ')})`);
             
@@ -380,23 +407,18 @@ const parseClassSubjects = (text) => {
   
                             let classProgress = 'NI';
   
-    
-  
                             if (percentage >= 90) classProgress = 'EX';
   
-    
-  
                             else if (percentage >= 60) classProgress = 'GD';
-  
-    
+
+                            // [Fix] Phonics Handling: If Phonics and total is 0 (no score), use stored progress or empty
+                            if (currentClassInfo === 'Phonics' && total === 0) {
+                                classProgress = score.classProgress || '';
+                            }
   
                     
   
-    
-  
                             // 이름 조합
-  
-    
   
             // 이름 조합
   
@@ -439,6 +461,7 @@ const parseClassSubjects = (text) => {
         if (existingScore) return existingScore;
   
         const displayName = `${student.nameE} (${student.nameK})`;
+        const isPhonics = student.classInfo === 'Phonics';
   
         return {
           isNew: true,
@@ -453,7 +476,7 @@ const parseClassSubjects = (text) => {
           rw1: 0, rw2: 0, rw3: 0, rw4: 0,
           att_attendance: 'Good', att_homework: 'Good', // 태도는 Good 기본
           lsTotal: 0, rwTotal: 0, total: 0,
-          classProgress: 'NI', // Default
+          classProgress: isPhonics ? '' : 'NI', // Default
           percentage: 0
         };
       });
@@ -948,7 +971,12 @@ const parseClassSubjects = (text) => {
       updatedScore.lsTotal = lsTotal;
       updatedScore.rwTotal = rwTotal;
       updatedScore.total = newTotal;
-      updatedScore.classProgress = newProgress;
+      
+      // [Fix] Only auto-calculate classProgress if user is NOT manually editing it
+      if (field !== 'classProgress') {
+          updatedScore.classProgress = newProgress;
+      }
+      
       updatedScore.percentage = percent;
 
       const updatedScores = scores.map(s => s.id === scoreId ? updatedScore : s);
@@ -1000,10 +1028,20 @@ const parseClassSubjects = (text) => {
     setSortConfig({ key, direction });
   };
 
-  const handleResetScore = (studentId) => {
+  const handleResetScore = async (studentId) => {
     if (window.confirm('점수를 초기화하시겠습니까? (0점/Good)')) {
       const targetDate = `${inputYear}-${String(inputMonth).padStart(2, '0')}`;
-      setScores(scores.filter(s => !(s.studentId === studentId && s.date === targetDate)));
+      const scoreToDelete = scores.find(s => s.studentId === studentId && s.date === targetDate);
+      
+      if (scoreToDelete) {
+          try {
+              await deleteDoc(doc(db, 'scores', scoreToDelete.id.toString()));
+              setScores(scores.filter(s => s.id !== scoreToDelete.id));
+          } catch (e) {
+              console.error("Error deleting score:", e);
+              alert("점수 초기화 실패 (DB 오류)");
+          }
+      }
     }
   };
 
@@ -1041,11 +1079,47 @@ const parseClassSubjects = (text) => {
   };
 
   // [1번 요청] 학년/클래스/학교 관리 핸들러
-  const handleAddGrade = () => { if (newGradeInput && !grades.includes(newGradeInput)) { setGrades([...grades, newGradeInput]); setNewGradeInput(''); }};
-  const handleDeleteGrade = (g) => { if (window.confirm('삭제?')) setGrades(grades.filter(item => item !== g)); };
+  const handleAddGrade = async () => { 
+      if (newGradeInput && !grades.includes(newGradeInput)) { 
+          const newGrades = [...grades, newGradeInput];
+          setGrades(newGrades); 
+          setNewGradeInput(''); 
+          try {
+              await setDoc(doc(db, 'settings', 'gradeList'), { list: newGrades });
+          } catch (e) { console.error("Error saving grades:", e); }
+      }
+  };
+
+  const handleDeleteGrade = async (g) => { 
+      if (window.confirm('삭제하시겠습니까?')) {
+          const newGrades = grades.filter(item => item !== g);
+          setGrades(newGrades); 
+          try {
+              await setDoc(doc(db, 'settings', 'gradeList'), { list: newGrades });
+          } catch (e) { console.error("Error deleting grade:", e); }
+      }
+  };
   
-  const handleAddSchool = () => { if (newSchoolInput && !schools.includes(newSchoolInput)) { setSchools([...schools, newSchoolInput]); setNewSchoolInput(''); }};
-  const handleDeleteSchool = (s) => { if (window.confirm('삭제?')) setSchools(schools.filter(item => item !== s)); };
+  const handleAddSchool = async () => { 
+      if (newSchoolInput && !schools.includes(newSchoolInput)) { 
+          const newSchools = [...schools, newSchoolInput];
+          setSchools(newSchools); 
+          setNewSchoolInput(''); 
+          try {
+              await setDoc(doc(db, 'settings', 'schoolList'), { list: newSchools });
+          } catch (e) { console.error("Error saving schools:", e); }
+      }
+  };
+
+  const handleDeleteSchool = async (s) => { 
+      if (window.confirm('삭제하시겠습니까?')) { 
+          const newSchools = schools.filter(item => item !== s);
+          setSchools(newSchools);
+          try {
+              await setDoc(doc(db, 'settings', 'schoolList'), { list: newSchools });
+          } catch (e) { console.error("Error deleting school:", e); }
+      }
+  };
 
   const handleAddClass = async () => {
     if (newClassInput && !classes.includes(newClassInput)) {
