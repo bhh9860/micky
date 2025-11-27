@@ -279,7 +279,7 @@ const ReportCard = ({
       case 3: return "3. L&S 세부 영역 누적";
       case 4: return "4. R&W 세부 영역 누적";
       case 5: return "5. 회차별 종합 성적 비교"; 
-      case 7: return "7. 전체 평균 대비 위치";
+      case 7: return "7. 클래스 평균 대비 위치";
       case 8: return "8. 월별 태도 변화";
       case 9: return "9. 평균 대비 편차";
       case 10: return "10. 분기별 평균 점수";

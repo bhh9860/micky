@@ -254,17 +254,29 @@ const FeatureRequest = ({ db }) => {
 
             {messages.map((msg) => {
               const isMe = msg.sender === username;
+              let timeStr = '';
+              if (msg.createdAt && msg.createdAt.toDate) {
+                 timeStr = msg.createdAt.toDate().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+              }
+
               return (
                 <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
-                  <span className="text-[10px] text-gray-400 mb-1 px-1">{msg.sender}</span>
-                  <div 
-                    className={`px-4 py-2 rounded-2xl max-w-[85%] text-sm shadow-sm break-words ${
-                      isMe 
-                        ? 'bg-yellow-400 text-yellow-900 rounded-tr-none font-medium' 
-                        : 'bg-white border border-gray-200 text-gray-800 rounded-tl-none'
-                    }`}
-                  >
-                    {msg.text}
+                  {!isMe && <span className="text-[10px] text-gray-400 mb-1 px-1">{msg.sender}</span>}
+                  
+                  <div className="flex items-end gap-1.5">
+                    {isMe && <span className="text-[10px] text-gray-400 min-w-fit mb-1">{timeStr}</span>}
+                    
+                    <div 
+                      className={`px-4 py-2 rounded-2xl max-w-[240px] lg:max-w-[320px] text-sm shadow-sm break-words whitespace-pre-wrap text-left ${
+                        isMe 
+                          ? 'bg-yellow-400 text-yellow-900 rounded-tr-none font-medium' 
+                          : 'bg-white border border-gray-200 text-gray-800 rounded-tl-none'
+                      }`}
+                    >
+                      {msg.text}
+                    </div>
+                    
+                    {!isMe && <span className="text-[10px] text-gray-400 min-w-fit mb-1">{timeStr}</span>}
                   </div>
                 </div>
               );
@@ -274,18 +286,23 @@ const FeatureRequest = ({ db }) => {
 
           {/* Chat Input */}
           <div className="p-4 border-t border-gray-100 bg-white">
-            <form onSubmit={handleSendMessage} className="flex gap-2">
-              <input 
-                type="text" 
+            <form onSubmit={handleSendMessage} className="flex gap-2 items-end">
+              <textarea 
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
-                placeholder="메시지를 입력하세요..." 
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-full focus:ring-2 focus:ring-yellow-400 focus:border-transparent outline-none text-sm bg-gray-50 text-gray-800 placeholder-gray-400"
+                onKeyDown={(e) => {
+                    if(e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendMessage(e);
+                    }
+                }}
+                placeholder="메시지를 입력하세요... (Shift+Enter 줄바꿈)" 
+                className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-yellow-400 focus:border-transparent outline-none text-sm bg-gray-50 text-gray-800 placeholder-gray-400 resize-none h-[50px]"
               />
               <button 
                 type="submit"
                 disabled={!newMessage.trim()}
-                className="bg-yellow-500 text-white p-2 rounded-full hover:bg-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+                className="bg-yellow-500 text-white p-3 rounded-full hover:bg-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
               >
                 <Send size={18} className="ml-0.5" />
               </button>
