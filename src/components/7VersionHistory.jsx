@@ -3,6 +3,16 @@ import { Clock, GitCommit, CheckCircle2 } from 'lucide-react';
 
 export const VERSION_HISTORY = [
   {
+    version: '3.0',
+    date: '2025-11-27',
+    changes: [
+      '대규모 업데이트: [Tab 8] 기능 문의하기 탭 신설',
+      '기능 추가: 사용자 기능 건의 및 버그 제보 게시판 구현 (실시간 Firebase 연동)',
+      '기능 추가: 개발자 소통을 위한 실시간 채팅방 "대화합시다" 기능 구현',
+      'UI 개선: 기능 문의하기 사용 가이드 추가 및 아이콘 다크모드 호환성 패치 적용'
+    ]
+  },
+  {
     version: '2.20',
     date: '2025-11-27',
     changes: [

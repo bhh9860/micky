@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { FileText, BarChart2, Save, User, UserCog, Sparkles, Settings } from 'lucide-react';
+import { FileText, BarChart2, Save, User, UserCog, Sparkles, Settings, MessageCircle } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, getDocs, setDoc, doc, writeBatch, getDoc, deleteDoc } from 'firebase/firestore';
 
@@ -10,16 +10,17 @@ import ScoreInput from './components/4ScoreInput';
 import ReportCard from './components/5ReportCard';
 import Statistics from './components/6Statistics';
 import VersionHistory, { LATEST_VERSION } from './components/7VersionHistory';
+import FeatureRequest from './components/8FeatureRequest';
 import { GitCommit } from 'lucide-react';
 
 // [중요 2] Firebase 설정 (제공해주신 키 적용)
 const firebaseConfig = {
-  apiKey: "AIzaSyCfhE0s90s7osE_zK0CWuJm_L0GDXhZoFE",
-  authDomain: "micky-397b0.firebaseapp.com",
-  projectId: "micky-397b0",
-  storageBucket: "micky-397b0.firebasestorage.app",
-  messagingSenderId: "612113130852",
-  appId: "1:612113130852:web:5cb31ae31eeb7161ae8671"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
 // Firebase 초기화
@@ -1243,7 +1244,8 @@ const parseClassSubjects = (text) => {
                 { id: 'input', label: '4. 점수입력', icon: Save }, 
                 { id: 'report', label: '5. 성적표', icon: FileText }, 
                 { id: 'dashboard', label: '6. 통계', icon: BarChart2 },
-                { id: 'version', label: '7. 수정사항', icon: GitCommit }
+                { id: 'version', label: '7. 수정사항', icon: GitCommit },
+                { id: 'request', label: '8. 기능 문의하기', icon: MessageCircle }
               ].map((tab) => (
                 <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-6 py-4 font-medium text-sm flex items-center gap-2 whitespace-nowrap transition-all rounded-t-lg mr-2 outline-none ring-0 ${activeTab === tab.id ? 'bg-white text-blue-600 shadow-sm border-t-2 border-blue-600' : 'bg-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-200'}`}>
                   <tab.icon size={16}/> {tab.label}
@@ -1388,6 +1390,11 @@ const parseClassSubjects = (text) => {
                 {/* TAB 7: 버전 관리 */}
                 {activeTab === 'version' && (
                   <VersionHistory />
+                )}
+
+                {/* TAB 8: 기능 문의하기 */}
+                {activeTab === 'request' && (
+                  <FeatureRequest db={db} />
                 )}
               </>
             )}
