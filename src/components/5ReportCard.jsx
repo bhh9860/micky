@@ -19,7 +19,7 @@ const ReportCard = ({
   page2Charts,
   extraPages,
   analysisCharts,
-  classSubjects,
+  levelConfig,
   reportDate,
   setReportDate,
   YEARS,
@@ -56,15 +56,15 @@ const ReportCard = ({
       );
   }, [studentHistory]);
 
-  const currentClassConfig = useMemo(() => {
-    const sClass = latestScore?.classInfo || selectedStudentInfo.classInfo;
-    const config = (classSubjects && sClass && classSubjects[sClass]) ? classSubjects[sClass] : { ls: [], rw: [] };
+  const currentLevelConfig = useMemo(() => {
+    const sLevel = latestScore?.classInfo || selectedStudentInfo.classInfo;
+    const config = (levelConfig && sLevel && levelConfig[sLevel]) ? levelConfig[sLevel] : { ls: [], rw: [] };
     
     const lsMax = (config.ls || []).reduce((a, b) => a + b.max, 0) || 30;
     const rwMax = (config.rw || []).reduce((a, b) => a + b.max, 0) || 30;
     
     return { config, lsMax, rwMax, totalMax: lsMax + rwMax };
-  }, [latestScore, selectedStudentInfo, classSubjects]);
+  }, [latestScore, selectedStudentInfo, levelConfig]);
 
   const renderReportGraph = (graphId) => {
     const chartMargin = { top: 25, right: 10, left: 10, bottom: 0 };
@@ -79,7 +79,7 @@ const ReportCard = ({
         if (graphId >= 200) {
             subjectType = 'rw';
             subjectIdx = graphId - 200;
-            const subj = currentClassConfig.config.rw[subjectIdx];
+            const subj = currentLevelConfig.config.rw[subjectIdx];
             if (subj) {
                 subjectName = subj.name;
                 maxScore = subj.max;
@@ -87,7 +87,7 @@ const ReportCard = ({
         } else {
             subjectType = 'ls';
             subjectIdx = graphId - 100;
-            const subj = currentClassConfig.config.ls[subjectIdx];
+            const subj = currentLevelConfig.config.ls[subjectIdx];
             if (subj) {
                 subjectName = subj.name;
                 maxScore = subj.max;
@@ -157,7 +157,7 @@ const ReportCard = ({
           <AreaChart data={sliceData(analysisCharts.areaData)} margin={chartMargin}>
             <CartesianGrid strokeDasharray="3 3"/>
             <XAxis dataKey="date" tick={{fontSize:10}}/>
-            <YAxis width={24} domain={[0, currentClassConfig.totalMax]}/>
+            <YAxis width={24} domain={[0, currentLevelConfig.totalMax]}/>
             <RechartsTooltip formatter={(value) => Number(value).toFixed(2)}/>
             <Area type="monotone" dataKey="LS" stackId="1" stroke="#8884d8" fill="#8884d8" label={renderStackLabel}/>
             <Area type="monotone" dataKey="RW" stackId="1" stroke="#82ca9d" fill="#82ca9d" label={renderStackLabel}/>
@@ -169,7 +169,7 @@ const ReportCard = ({
           <BarChart data={sliceData(analysisCharts.lsStackData)} margin={chartMargin}>
             <CartesianGrid strokeDasharray="3 3"/>
             <XAxis dataKey="date" tick={{fontSize:10}}/>
-            <YAxis width={24} domain={[0, currentClassConfig.lsMax]}/>
+            <YAxis width={24} domain={[0, currentLevelConfig.lsMax]}/>
             <RechartsTooltip formatter={(value) => Number(value).toFixed(2)}/>
             <Legend verticalAlign="top" align="right" height={36} iconSize={10}/>
             <Bar dataKey="Recog" stackId="a" fill="#8884d8" />
@@ -184,7 +184,7 @@ const ReportCard = ({
           <BarChart data={sliceData(analysisCharts.rwStackData)} margin={chartMargin}>
             <CartesianGrid strokeDasharray="3 3"/>
             <XAxis dataKey="date" tick={{fontSize:10}}/>
-            <YAxis width={24} domain={[0, currentClassConfig.rwMax]}/>
+            <YAxis width={24} domain={[0, currentLevelConfig.rwMax]}/>
             <RechartsTooltip formatter={(value) => Number(value).toFixed(2)}/>
             <Legend verticalAlign="top" align="right" height={36} iconSize={10}/>
             <Bar dataKey="Gram" stackId="a" fill="#8884d8" />
@@ -203,7 +203,7 @@ const ReportCard = ({
             <RechartsTooltip formatter={(value) => value}/>
             <Legend/>
             <Line type="monotone" dataKey="MyScore" stroke="#D97706" strokeWidth={2} label={renderCustomLabel}/>
-            <Line type="monotone" dataKey="ClassAvg" stroke="#F59E0B" strokeWidth={2} label={renderCustomLabel}/>
+            <Line type="monotone" dataKey="LevelAvg" stroke="#F59E0B" strokeWidth={2} label={renderCustomLabel}/>
             <Line type="monotone" dataKey="TotalAvg" stroke="#10B981" strokeWidth={2} label={renderCustomLabel}/>
           </LineChart>
         </ResponsiveContainer>
@@ -215,7 +215,7 @@ const ReportCard = ({
             <XAxis dataKey="date" tick={{fontSize:10}}/>
             <YAxis width={24} domain={[0, 100]}/>
             <RechartsTooltip formatter={(value) => value}/>
-            <Bar dataKey="ClassAvg" barSize={20} fill="#ff7300" label={renderCustomLabel}/>
+            <Bar dataKey="LevelAvg" barSize={20} fill="#ff7300" label={renderCustomLabel}/>
             <Line type="monotone" dataKey="MyScore" stroke="#413ea0" strokeWidth={3} label={renderCustomLabel} />
           </ComposedChart>
         </ResponsiveContainer>
@@ -262,12 +262,12 @@ const ReportCard = ({
     if (id >= 100) {
         if (id >= 200) {
             const idx = id - 200;
-            const subj = currentClassConfig.config.rw[idx];
-            const startNum = 11 + currentClassConfig.config.ls.length + idx;
+            const subj = currentLevelConfig.config.rw[idx];
+            const startNum = 11 + currentLevelConfig.config.ls.length + idx;
             return subj ? `${startNum}. ${subj.name} 성장세` : '';
         } else {
             const idx = id - 100;
-            const subj = currentClassConfig.config.ls[idx];
+            const subj = currentLevelConfig.config.ls[idx];
             const startNum = 11 + idx;
             return subj ? `${startNum}. ${subj.name} 성장세` : '';
         }
@@ -279,7 +279,7 @@ const ReportCard = ({
       case 3: return "3. L&S 세부 영역 누적";
       case 4: return "4. R&W 세부 영역 누적";
       case 5: return "5. 회차별 종합 성적 비교"; 
-      case 7: return "7. 클래스 평균 대비 위치";
+      case 7: return "7. 레벨 평균 대비 위치";
       case 8: return "8. 월별 태도 변화";
       case 9: return "9. 평균 대비 편차";
       case 10: return "10. 분기별 평균 점수";
@@ -347,14 +347,14 @@ const ReportCard = ({
                           </thead>
                           <tbody>
                             {(() => {
-                                const lsItems = currentClassConfig.config.ls || [];
-                                const rwItems = currentClassConfig.config.rw || [];
+                                const lsItems = currentLevelConfig.config.ls || [];
+                                const rwItems = currentLevelConfig.config.rw || [];
 
                                 return (
                                     <>
                                         {lsItems.map((item, idx) => (
                                             <tr key={`ls-${idx}`} className="border-b border-gray-300">
-                                                {idx === 0 && <td rowSpan={lsItems.length} className="p-1 border-r text-center bg-blue-50 font-bold whitespace-pre-line">{currentClassConfig.config.lsTitle || 'Listening\n& Speaking'}</td>}
+                                                {idx === 0 && <td rowSpan={lsItems.length} className="p-1 border-r text-center bg-blue-50 font-bold whitespace-pre-line">{currentLevelConfig.config.lsTitle || 'Listening\n& Speaking'}</td>}
                                                 <td className="p-1 border-r">{item.name}</td>
                                                 {!isPhonics && <td className="p-1 border-r text-center">{item.max}</td>}
                                                 {!isPhonics && <td className="p-1 text-center font-bold">{latestScore[`ls${idx+1}`]}</td>}
@@ -364,7 +364,7 @@ const ReportCard = ({
 
                                         {rwItems.map((item, idx) => (
                                             <tr key={`rw-${idx}`} className="border-b border-gray-300">
-                                                {idx === 0 && <td rowSpan={rwItems.length} className="p-1 border-r text-center bg-green-50 font-bold whitespace-pre-line">{currentClassConfig.config.rwTitle || 'Reading\n& Writing'}</td>}
+                                                {idx === 0 && <td rowSpan={rwItems.length} className="p-1 border-r text-center bg-green-50 font-bold whitespace-pre-line">{currentLevelConfig.config.rwTitle || 'Reading\n& Writing'}</td>}
                                                 <td className="p-1 border-r">{item.name}</td>
                                                 {!isPhonics && <td className="p-1 border-r text-center">{item.max}</td>}
                                                 {!isPhonics && <td className="p-1 text-center font-bold">{latestScore[`rw${idx+1}`]}</td>}
@@ -375,7 +375,7 @@ const ReportCard = ({
                                         {!isPhonics && (
                                             <tr className="bg-gray-100 font-bold">
                                                 <td colSpan="2" className="p-1 border-r text-center">TOTAL SCORE</td>
-                                                <td className="p-1 border-r text-center">{currentClassConfig.totalMax}</td>
+                                                <td className="p-1 border-r text-center">{currentLevelConfig.totalMax}</td>
                                                 <td className="p-1 text-center text-indigo-700 text-base">{latestScore.total}</td>
                                             </tr>
                                         )}
@@ -388,11 +388,11 @@ const ReportCard = ({
                   })()}
                 </table>
               </div>
-              {/* Class Progress */}
+              {/* Level Progress */}
               <div>
-                <h3 className="font-bold text-base mb-1 flex items-center gap-2"><FileText size={16}/> Class Progress</h3>
+                <h3 className="font-bold text-base mb-1 flex items-center gap-2"><FileText size={16}/> Level Progress</h3>
                 <table className="w-full border-2 border-gray-800 text-sm text-center">
-                  <thead className="bg-gray-200 border-b-2 border-gray-800"><tr><th className="p-1">Overall Progress Grade (Based on Total Score %)</th></tr></thead>
+                  <thead className="bg-gray-200 border-b-2 border-gray-800"><tr><th className="p-1">Overall Level Progress Grade (Based on Total Score %)</th></tr></thead>
                   <tbody>
                     <tr className="border-b border-gray-800">
                       <td className={`p-2 font-bold text-xl ${latestScore.classProgress === 'EX' ? 'text-indigo-700' : latestScore.classProgress === 'GD' ? 'text-green-600' : 'text-red-600'}`}>
@@ -412,7 +412,7 @@ const ReportCard = ({
                           const radarData = [];
                           
                           // Collect LS Data
-                          (currentClassConfig.config.ls || []).forEach((item, idx) => {
+                          (currentLevelConfig.config.ls || []).forEach((item, idx) => {
                               const score = Number(latestScore[`ls${idx+1}`]) || 0;
                               const max = item.max || 0;
                               const percent = max > 0 ? (score / max) * 100 : 0;
@@ -429,7 +429,7 @@ const ReportCard = ({
                           });
 
                           // Collect RW Data
-                          (currentClassConfig.config.rw || []).forEach((item, idx) => {
+                          (currentLevelConfig.config.rw || []).forEach((item, idx) => {
                               const score = Number(latestScore[`rw${idx+1}`]) || 0;
                               const max = item.max || 0;
                               const percent = max > 0 ? (score / max) * 100 : 0;
@@ -456,7 +456,7 @@ const ReportCard = ({
                     </ResponsiveContainer>
                   </div>
                   <div className="border-2 border-gray-800 p-2 rounded-sm flex flex-col justify-center bg-gray-50 flex-1">
-                    <h3 className="font-bold text-sm mb-2 border-b-2 border-gray-300 pb-1">* Class Attitude</h3>
+                    <h3 className="font-bold text-sm mb-2 border-b-2 border-gray-300 pb-1">* Level Attitude</h3>
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between items-center"><span className="font-medium text-gray-600">Attendance</span><span className={`font-bold px-2 py-0.5 rounded text-white text-xs ${latestScore.att_attendance === 'Excellent' ? 'bg-green-600' : latestScore.att_attendance === 'Good' ? 'bg-blue-500' : 'bg-red-400'}`}>{latestScore.att_attendance || '-'}</span></div>
                       <div className="flex justify-between items-center"><span className="font-medium text-gray-600">Homework</span><span className={`font-bold px-2 py-0.5 rounded text-white text-xs ${latestScore.att_homework === 'Excellent' ? 'bg-green-600' : latestScore.att_homework === 'Good' ? 'bg-blue-500' : 'bg-red-400'}`}>{latestScore.att_homework || '-'}</span></div>
@@ -494,8 +494,8 @@ const ReportCard = ({
                 <thead className="bg-gray-100 border-b-2 border-gray-800 font-bold"><tr><th className="p-2 border-r border-gray-300">Date</th><th className="p-2 border-r border-gray-300">L&S Score</th><th className="p-2 border-r border-gray-300">R&W Score</th><th className="p-2 bg-yellow-50">Total Score</th></tr></thead>
                 <tbody>
                   {uniqueHistory.slice(0, 5).map((score) => {
-                    const sClass = score.classInfo;
-                    const config = (classSubjects && classSubjects[sClass]) ? classSubjects[sClass] : { ls: [], rw: [] };
+                    const sLevel = score.classInfo;
+                    const config = (levelConfig && levelConfig[sLevel]) ? levelConfig[sLevel] : { ls: [], rw: [] };
                     const lsMax = (config.ls || []).reduce((a, b) => a + b.max, 0);
                     const rwMax = (config.rw || []).reduce((a, b) => a + b.max, 0);
 

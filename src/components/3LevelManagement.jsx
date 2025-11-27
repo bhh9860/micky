@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { Settings, Save, AlertCircle, Plus, Trash2, Edit3 } from 'lucide-react';
 
-const SubjectManagement = ({
-  classes,
-  classSubjects,
-  handleUpdateClassSubject,
-  newClassInput,
-  setNewClassInput,
-  handleAddClass,
-  handleDeleteClass
+const LevelManagement = ({
+  levels,
+  levelConfig,
+  handleUpdateLevelSubject,
+  newLevelInput,
+  setNewLevelInput,
+  handleAddLevel,
+  handleDeleteLevel
 }) => {
-  const [selectedClass, setSelectedClass] = useState(classes[0]);
-  // 로컬 편집 상태 관리 (category titles 포함)
+  const [selectedLevel, setSelectedLevel] = useState(levels[0]);
+  // 로컬 편집 상태 관리
   const [editSubjects, setEditSubjects] = useState({ 
     ls: [], 
     rw: [], 
@@ -20,14 +20,14 @@ const SubjectManagement = ({
   });
 
   useEffect(() => {
-    if (classes.length > 0 && !classes.includes(selectedClass)) {
-        setSelectedClass(classes[0]);
+    if (levels.length > 0 && !levels.includes(selectedLevel)) {
+        setSelectedLevel(levels[0]);
     }
-  }, [classes, selectedClass]);
+  }, [levels, selectedLevel]);
 
   useEffect(() => {
-    if (selectedClass && classSubjects[selectedClass]) {
-      const currentConfig = classSubjects[selectedClass];
+    if (selectedLevel && levelConfig[selectedLevel]) {
+      const currentConfig = levelConfig[selectedLevel];
       setEditSubjects({
         ls: currentConfig.ls || [],
         rw: currentConfig.rw || [],
@@ -42,7 +42,7 @@ const SubjectManagement = ({
             rwTitle: 'Reading & Writing (R&W)'
         });
     }
-  }, [selectedClass, classSubjects]);
+  }, [selectedLevel, levelConfig]);
 
   const handleChange = (area, index, field, value) => {
     const newArea = [...editSubjects[area]];
@@ -69,44 +69,44 @@ const SubjectManagement = ({
   };
 
   const handleSave = () => {
-    handleUpdateClassSubject(selectedClass, editSubjects);
-    alert(`${selectedClass} 클래스의 과목 설정이 저장되었습니다.`);
+    handleUpdateLevelSubject(selectedLevel, editSubjects);
+    alert(`${selectedLevel} 레벨의 과목 설정이 저장되었습니다.`);
   };
 
   return (
     <div className="flex flex-col gap-6 h-full">
       <div className="bg-white p-6 rounded-lg shadow border border-gray-200 overflow-auto">
         
-        {/* [1번 요청] 클래스 관리 UI 추가 */}
+        {/* 레벨 관리 UI */}
         <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-6">
-            <h3 className="font-bold text-gray-700 mb-3 flex items-center gap-2"><Settings size={18}/> 클래스 관리 (추가/삭제)</h3>
+            <h3 className="font-bold text-gray-700 mb-3 flex items-center gap-2"><Settings size={18}/> 레벨 관리 (추가/삭제)</h3>
             <div className="flex flex-wrap gap-4 items-center justify-between">
                 <div className="flex gap-2 flex-1 max-w-md">
                      <input 
                         type="text" 
-                        placeholder="새 클래스 이름 (예: Advanced-1)" 
+                        placeholder="새 레벨 이름 (예: Advanced-1)" 
                         className="border p-2 rounded text-sm flex-1"
-                        value={newClassInput}
-                        onChange={(e) => setNewClassInput(e.target.value)}
+                        value={newLevelInput}
+                        onChange={(e) => setNewLevelInput(e.target.value)}
                      />
-                     <button onClick={handleAddClass} className="bg-indigo-600 text-white px-4 py-2 rounded text-sm hover:bg-indigo-700 font-bold whitespace-nowrap">
-                        + 클래스 추가
+                     <button onClick={handleAddLevel} className="bg-indigo-600 text-white px-4 py-2 rounded text-sm hover:bg-indigo-700 font-bold whitespace-nowrap">
+                        + 레벨 추가
                      </button>
                 </div>
                 
                 <div className="flex items-center gap-2 bg-white px-4 py-2 rounded border border-gray-300 shadow-sm">
-                    <label className="font-bold text-sm text-gray-600">편집할 클래스:</label>
+                    <label className="font-bold text-sm text-gray-600">편집할 레벨:</label>
                     <select 
                         className="border-none bg-transparent font-bold text-indigo-700 text-base outline-none cursor-pointer"
-                        value={selectedClass}
-                        onChange={(e) => setSelectedClass(e.target.value)}
+                        value={selectedLevel}
+                        onChange={(e) => setSelectedLevel(e.target.value)}
                     >
-                        {classes.map(c => <option key={c} value={c}>{c}</option>)}
+                        {levels.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                     <button 
-                        onClick={() => handleDeleteClass(selectedClass)} 
+                        onClick={() => handleDeleteLevel(selectedLevel)} 
                         className="ml-2 text-gray-400 hover:text-red-600 p-1 rounded hover:bg-red-50 transition-colors"
-                        title="현재 선택된 클래스 삭제"
+                        title="현재 선택된 레벨 삭제"
                     >
                         <Trash2 size={18}/>
                     </button>
@@ -221,8 +221,6 @@ const SubjectManagement = ({
                     </button>
                 </div>
             </div>
-
-            {/* Class Progress 설정 섹션 삭제됨 */}
         </div>
 
         <div className="mt-6 flex justify-end">
@@ -238,10 +236,10 @@ const SubjectManagement = ({
             <AlertCircle size={16} className="mt-1 shrink-0"/>
             <div>
                 <p className="font-bold">주의사항:</p>
-                <p>1. 과목 설정을 변경하면 해당 클래스의 '점수 입력', '세부학생관리', '성적표' 화면에 즉시 반영됩니다.</p>
+                <p>1. 과목 설정을 변경하면 해당 레벨의 '점수 입력', '세부학생관리', '성적표' 화면에 즉시 반영됩니다.</p>
                 <p>2. 배점을 변경하더라도 기존에 입력된 점수 데이터는 삭제되지 않지만, 성적표나 그래프 표시 시 새로운 배점 기준으로 비율이 계산될 수 있습니다.</p>
                 <p>3. 제목(Listening & Speaking 등)을 클릭하여 카테고리명을 수정할 수 있습니다.</p>
-                <p>4. Class Progress의 항목 이름도 변경하여 성적표에 반영할 수 있습니다.</p>
+                <p>4. Level Progress의 항목 이름도 변경하여 성적표에 반영할 수 있습니다.</p>
             </div>
         </div>
 
@@ -250,4 +248,4 @@ const SubjectManagement = ({
   );
 };
 
-export default SubjectManagement;
+export default LevelManagement;

@@ -15,8 +15,8 @@ const Statistics = ({
         <div className="flex items-center gap-4">
           <span className="font-bold text-lg flex items-center gap-2"><PieChart size={20}/> 통계 기준 선택:</span>
           <div className="flex bg-gray-100 p-1 rounded-lg">
-            <button onClick={() => setStatCriteria('class')} className={`px-4 py-2 rounded-md text-sm font-medium ${statCriteria === 'class' ? 'bg-white text-indigo-600 shadow-sm' : 'bg-transparent text-gray-500 hover:bg-gray-200'}`}>클래스 레벨별</button>
-            <button onClick={() => setStatCriteria('grade')} className={`px-4 py-2 rounded-md text-sm font-medium ${statCriteria === 'grade' ? 'bg-white text-indigo-600 shadow-sm' : 'bg-transparent text-gray-500 hover:bg-gray-200'}`}>학년별(Grade)</button>
+            <button onClick={() => setStatCriteria('level')} className={`px-4 py-2 rounded-md text-sm font-medium ${statCriteria === 'level' ? 'bg-white text-indigo-600 shadow-sm' : 'bg-transparent text-gray-500 hover:bg-gray-200'}`}>레벨별 (Level)</button>
+            <button onClick={() => setStatCriteria('grade')} className={`px-4 py-2 rounded-md text-sm font-medium ${statCriteria === 'grade' ? 'bg-white text-indigo-600 shadow-sm' : 'bg-transparent text-gray-500 hover:bg-gray-200'}`}>학년별 (Grade)</button>
           </div>
         </div>
       </div>

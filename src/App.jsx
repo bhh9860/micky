@@ -5,7 +5,7 @@ import { getFirestore, collection, getDocs, setDoc, doc, writeBatch, getDoc, del
 
 import StudentManagement from './components/1StudentManagement';
 import StudentDetail from './components/2StudentDetail';
-import SubjectManagement from './components/3SubjectManagement';
+import LevelManagement from './components/3LevelManagement';
 import ScoreInput from './components/4ScoreInput';
 import ReportCard from './components/5ReportCard';
 import Statistics from './components/6Statistics';
@@ -35,7 +35,7 @@ try {
 // [중요] AI 기능을 사용하려면 아래 따옴표 안에 본인의 Gemini API 키를 입력하세요.
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 
-// [2번 요청] AI 프롬프트 템플릿 변수 (수정 가능)
+// [2번 요청] AI 프롬프트 템플릿 변수
 const AI_PROMPT_TEMPLATE = `
 Role: Korea's Top-tier English Education Expert (1타 강사)
 Task: Analyze the student's score data and provide a sharp, strategic report.
@@ -49,9 +49,9 @@ Requirements:
 `;
 
 // --- 상수 및 설정 ---
-const INITIAL_GRADES = [];
-const INITIAL_CLASSES = [];
-const INITIAL_SCHOOLS = []; 
+const INITIAL_GRADES = ['G1', 'G2', 'G3', 'G4', 'G5', 'G6', 'G7', 'G8'];
+const INITIAL_LEVELS = [];
+const INITIAL_SCHOOLS = ['학교 A', '학교 B', '학교 C']; 
 
 const NAMES = [];
 
@@ -106,66 +106,56 @@ const CLASS_SCORE_TXT = `1. PHONICS
 const ATTITUDE_SCORE = { 'Excellent': 10, 'Good': 7, 'NI': 3 };
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
-// Helper for parsing
+// Helper for parsing (Parsing Logic handles "Class" text from file, maps to Level)
 const parseClassSubjects = (text) => {
   const lines = text.split('\n');
   const config = {};
-  let currentClass = null;
+  let currentLevel = null;
 
   lines.forEach(line => {
     const classMatch = line.match(/^(\d+)\.\s+(.+)$/);
     if (classMatch) {
       let rawName = classMatch[2].trim();
-      // Normalize Class Name (Title Case)
-      let className = rawName.toLowerCase().replace(/\b\w/g, s => s.toUpperCase());
-      // Handle specific casing if needed, e.g. "Pre Starter" is fine.
-      if (rawName === 'PHONICS') className = 'Phonics'; // Special case if needed
+      let levelName = rawName.toLowerCase().replace(/\b\w/g, s => s.toUpperCase());
+      if (rawName === 'PHONICS') levelName = 'Phonics';
       
-      currentClass = className;
-      // Default structure
-      config[currentClass] = { 
+      currentLevel = levelName;
+      config[currentLevel] = { 
         ls: [], 
         rw: [], 
         lsTitle: 'Listening & Speaking (L&S)', 
         rwTitle: 'Reading & Writing (R&W)' 
-      };
+      }; 
       return;
     }
 
-    if (!currentClass) return;
+    if (!currentLevel) return;
     const trimmed = line.trim();
     if (!trimmed) return;
 
-    // Parse (LS)/(RW)
-    // Regex: (LS) - Name - 5문항
     const lsMatch = trimmed.match(/^\(LS\)\s-\s(.+?)\s-\s(\d+)문항/);
     const rwMatch = trimmed.match(/^\(RW\)\s-\s(.+?)\s-\s(\d+)문항/);
-    // Regex: (Phonics 1) - Name (No max score specified, defaulting to 5)
     const phonicsMatch = trimmed.match(/^\(Phonics\s(\d+)\)\s-\s(.+)$/);
 
     if (lsMatch) {
-      config[currentClass].ls.push({ name: lsMatch[1].trim(), max: parseInt(lsMatch[2]) });
+      config[currentLevel].ls.push({ name: lsMatch[1].trim(), max: parseInt(lsMatch[2]) });
     } else if (rwMatch) {
-      config[currentClass].rw.push({ name: rwMatch[1].trim(), max: parseInt(rwMatch[2]) });
+      config[currentLevel].rw.push({ name: rwMatch[1].trim(), max: parseInt(rwMatch[2]) });
     } else if (phonicsMatch) {
       const pLevel = phonicsMatch[1];
       const pName = phonicsMatch[2].trim();
-      const pMax = 5; // Default max score for Phonics
+      const pMax = 5; 
 
       if (pLevel === '1') {
-        config[currentClass].ls.push({ name: pName, max: pMax });
-        config[currentClass].lsTitle = 'Phonics 1';
+        config[currentLevel].ls.push({ name: pName, max: pMax });
+        config[currentLevel].lsTitle = 'Phonics 1';
       } else {
-        config[currentClass].rw.push({ name: pName, max: pMax });
-        config[currentClass].rwTitle = 'Phonics 2';
+        config[currentLevel].rw.push({ name: pName, max: pMax });
+        config[currentLevel].rwTitle = 'Phonics 2';
       }
     }
   });
   
-  // Filter out classes with no subjects (like Phonics if we didn't add any)
-  // Or keep them? App expects ls/rw arrays.
-  // If Phonics has empty ls/rw, it might cause issues if we try to use it.
-  // Let's remove empty classes for safety unless they are valid.
   Object.keys(config).forEach(key => {
       if (config[key].ls.length === 0 && config[key].rw.length === 0) {
           delete config[key];
@@ -181,26 +171,22 @@ const parseClassSubjects = (text) => {
     const [scores, setScores] = useState([]);
     const [loading, setLoading] = useState(true);
     
-    // [1번 요청] 학교/학년/클래스 관리 State
     const [grades, setGrades] = useState(INITIAL_GRADES);
-    const [classes, setClasses] = useState(INITIAL_CLASSES);
+    const [levels, setLevels] = useState(INITIAL_LEVELS);
     const [schools, setSchools] = useState(INITIAL_SCHOOLS); 
     
-    // [3번 요청] 클래스별 과목 설정 State
-    const [classSubjects, setClassSubjects] = useState({});
-  
-    // 클래스가 추가될 때 기본 과목 설정도 추가 (useEffect removed to avoid overwriting custom loaded config, handled in addClass)
+    const [levelConfig, setLevelConfig] = useState({});
   
     const [newGradeInput, setNewGradeInput] = useState('');
-    const [newClassInput, setNewClassInput] = useState('');
+    const [newLevelInput, setNewLevelInput] = useState('');
     const [newSchoolInput, setNewSchoolInput] = useState(''); 
   
     const [showConfig, setShowConfig] = useState(false); 
   
-    // [2번 요청] 이름 입력 분리 (nameK, nameE)
+    // Note: classInfo property is kept for DB consistency, but represents "Level"
     const [newStudent, setNewStudent] = useState({ nameK: '', nameE: '', school: '', grade: 'G3', classInfo: '' });
     const [selectedStudentId, setSelectedStudentId] = useState('');
-    const [statCriteria, setStatCriteria] = useState('class');
+    const [statCriteria, setStatCriteria] = useState('level'); // 'level' or 'grade'
   
     const [selectedReportGraphs, setSelectedReportGraphs] = useState([]);
   
@@ -208,7 +194,6 @@ const parseClassSubjects = (text) => {
     const [inputYear, setInputYear] = useState(today.getFullYear());
     const [inputMonth, setInputMonth] = useState(today.getMonth() + 1);
     
-    // [New] 성적표 출력 기준 날짜 (기본값: 현재)
     const [reportDate, setReportDate] = useState({ year: today.getFullYear(), month: today.getMonth() + 1 });
   
     const [graphMode, setGraphMode] = useState('monthly'); 
@@ -216,7 +201,6 @@ const parseClassSubjects = (text) => {
   
     const [sortConfig, setSortConfig] = useState({ key: null, direction: 'ascending' });
   
-    // --- Firebase Data Loading & Seeding ---
     useEffect(() => {
       const fetchData = async () => {
           if (!db) return;
@@ -225,20 +209,18 @@ const parseClassSubjects = (text) => {
               const sSnapshot = await getDocs(collection(db, 'students'));
               const scSnapshot = await getDocs(collection(db, 'scores'));
               const configDoc = await getDoc(doc(db, 'settings', 'subjectConfig'));
-              const classesDoc = await getDoc(doc(db, 'settings', 'classList')); 
+              const levelsDoc = await getDoc(doc(db, 'settings', 'classList')); // Originally classList
               const schoolsDoc = await getDoc(doc(db, 'settings', 'schoolList')); 
               const gradesDoc = await getDoc(doc(db, 'settings', 'gradeList')); 
 
-              // Load Classes
-              let loadedClasses = [];
-              if (classesDoc.exists()) {
-                  loadedClasses = classesDoc.data().list;
-                  if (loadedClasses && loadedClasses.length > 0) setClasses(loadedClasses);
+              let loadedLevels = [];
+              if (levelsDoc.exists()) {
+                  loadedLevels = levelsDoc.data().list;
+                  if (loadedLevels && loadedLevels.length > 0) setLevels(loadedLevels);
               } else {
-                  await setDoc(doc(db, 'settings', 'classList'), { list: INITIAL_CLASSES });
+                  await setDoc(doc(db, 'settings', 'classList'), { list: INITIAL_LEVELS });
               }
 
-              // Load Schools
               if (schoolsDoc.exists()) {
                   const loadedSchools = schoolsDoc.data().list;
                   if (loadedSchools && loadedSchools.length > 0) setSchools(loadedSchools);
@@ -246,7 +228,6 @@ const parseClassSubjects = (text) => {
                   await setDoc(doc(db, 'settings', 'schoolList'), { list: INITIAL_SCHOOLS });
               }
 
-              // Load Grades
               if (gradesDoc.exists()) {
                   const loadedGrades = gradesDoc.data().list;
                   if (loadedGrades && loadedGrades.length > 0) setGrades(loadedGrades);
@@ -254,13 +235,11 @@ const parseClassSubjects = (text) => {
                   await setDoc(doc(db, 'settings', 'gradeList'), { list: INITIAL_GRADES });
               }
   
-              // Load Subjects
               if (configDoc.exists()) {
-                  setClassSubjects(configDoc.data());
+                  setLevelConfig(configDoc.data());
               } 
   
-              // Check if Phonics is missing (Migration/Update Trigger)
-              const shouldInit = (sSnapshot.empty && !classesDoc.exists()) || (loadedClasses.length > 0 && !loadedClasses.includes('Phonics'));
+              const shouldInit = (sSnapshot.empty && !levelsDoc.exists()) || (loadedLevels.length > 0 && !loadedLevels.includes('Phonics'));
 
               if (shouldInit) {
                   console.log("Database update required (Phonics or Empty). Initializing...");
@@ -287,41 +266,54 @@ const parseClassSubjects = (text) => {
         try {
             console.log("Initializing Database from Class Score Text...");
             
-            // 1. Parse Config
             const parsedConfig = parseClassSubjects(CLASS_SCORE_TXT);
-            const classList = Object.keys(parsedConfig);
+            const levelList = Object.keys(parsedConfig);
             
-            if (classList.length === 0) {
-                alert("텍스트 파일 파싱 실패: 클래스를 찾을 수 없습니다.");
+            if (levelList.length === 0) {
+                alert("텍스트 파일 파싱 실패: 레벨을 찾을 수 없습니다.");
                 return;
             }
 
             const batch = writeBatch(db);
 
-            // 2. Save Settings
             const subjectConfigRef = doc(db, 'settings', 'subjectConfig');
             batch.set(subjectConfigRef, parsedConfig);
             
-            const classListRef = doc(db, 'settings', 'classList');
-            batch.set(classListRef, { list: classList });
+            const levelListRef = doc(db, 'settings', 'classList');
+            batch.set(levelListRef, { list: levelList });
             
-            // Save Default Schools/Grades if needed during Init
             const schoolListRef = doc(db, 'settings', 'schoolList');
             batch.set(schoolListRef, { list: INITIAL_SCHOOLS });
             
             const gradeListRef = doc(db, 'settings', 'gradeList');
             batch.set(gradeListRef, { list: INITIAL_GRADES });
 
-            // 3. Commit
+            const firstNames = ['지훈', '서준', '민준', '도윤', '예준', '시우', '하준', '지호', '주원', '지우', '서현', '하은', '민서', '지유', '윤서', '채원', '수아', '지아', '서영', '다은'];
+            const lastNames = ['김', '이', '박', '최', '정', '강', '조', '윤', '장', '임'];
+            const engNames = ['James', 'John', 'Robert', 'Michael', 'William', 'David', 'Richard', 'Joseph', 'Thomas', 'Charles', 'Mary', 'Patricia', 'Jennifer', 'Linda', 'Elizabeth', 'Barbara', 'Susan', 'Jessica', 'Sarah', 'Karen'];
+
+            for (let i = 1; i <= 10; i++) {
+                const id = `S${String(i).padStart(3, '0')}`;
+                const nameK = lastNames[Math.floor(Math.random() * lastNames.length)] + firstNames[Math.floor(Math.random() * firstNames.length)];
+                const nameE = engNames[Math.floor(Math.random() * engNames.length)];
+                const school = INITIAL_SCHOOLS[Math.floor(Math.random() * INITIAL_SCHOOLS.length)];
+                const grade = INITIAL_GRADES[Math.floor(Math.random() * INITIAL_GRADES.length)];
+                const classInfo = levelList[Math.floor(Math.random() * levelList.length)];
+
+                const studentRef = doc(db, 'students', id);
+                batch.set(studentRef, {
+                    id, nameK, nameE, school, grade, classInfo
+                });
+            }
+
             await batch.commit();
             
-            // 4. Update Local State
-            setClassSubjects(parsedConfig);
-            setClasses(classList);
+            setLevelConfig(parsedConfig);
+            setLevels(levelList);
             setSchools(INITIAL_SCHOOLS);
             setGrades(INITIAL_GRADES);
             
-            alert(`초기화 완료! ${classList.length}개 클래스가 생성되었습니다.\n(${classList.join(', ')})`);
+            alert(`초기화 완료! ${levelList.length}개 레벨과 10명의 학생이 생성되었습니다.\n(${levelList.join(', ')})`);
             
         } catch (e) {
             console.error("DB Init Error:", e);
@@ -333,9 +325,8 @@ const parseClassSubjects = (text) => {
   
     const getStudentInfo = (id) => students.find(s => s.id === id);
   
-    // Helper to get max points
-    const getMaxPoints = (classInfo) => {
-        const config = classSubjects[classInfo] || { ls: [], rw: [] };
+    const getMaxPoints = (levelName) => {
+        const config = levelConfig[levelName] || { ls: [], rw: [] };
         const lsMax = (config.ls || []).reduce((sum, subj) => sum + (subj.max || 0), 0);
         const rwMax = (config.rw || []).reduce((sum, subj) => sum + (subj.max || 0), 0);
         return lsMax + rwMax || 60; 
@@ -349,112 +340,56 @@ const parseClassSubjects = (text) => {
   
             const sInfo = getStudentInfo(score.studentId);
   
-            const currentClassInfo = score.classInfo || sInfo?.classInfo || classes[0] || '';
+            const currentLevel = score.classInfo || sInfo?.classInfo || levels[0] || '';
   
-            const config = classSubjects[currentClassInfo] || { ls: [], rw: [] };
-  
-    
-  
-            // [Fix] Dynamic Total Calculation
+            const config = levelConfig[currentLevel] || { ls: [], rw: [] };
   
             let lsTotal = 0;
-  
             if (config.ls) {
-  
                 config.ls.forEach((_, idx) => {
-  
                     lsTotal += Number(score[`ls${idx + 1}`]) || 0;
-  
                 });
-  
-            } else { // Fallback
-  
+            } else { 
                  lsTotal = (Number(score.ls1)||0) + (Number(score.ls2)||0) + (Number(score.ls3)||0) + (Number(score.ls4)||0);
-  
             }
-  
-    
   
             let rwTotal = 0;
-  
             if (config.rw) {
-  
                 config.rw.forEach((_, idx) => {
-  
                     rwTotal += Number(score[`rw${idx + 1}`]) || 0;
-  
                 });
-  
-            } else { // Fallback
-  
+            } else { 
                  rwTotal = (Number(score.rw1)||0) + (Number(score.rw2)||0) + (Number(score.rw3)||0) + (Number(score.rw4)||0);
-  
             }
   
-    
-  
-                            const total = lsTotal + rwTotal;
-  
-    
-  
-                            const max = getMaxPoints(currentClassInfo);
-  
-    
-  
-                            const percentage = max > 0 ? (total / max) * 100 : 0;
-  
-    
-  
-                            
-  
-    
-  
-                            let classProgress = 'NI';
-  
-                            if (percentage >= 90) classProgress = 'EX';
-  
-                            else if (percentage >= 60) classProgress = 'GD';
+            const total = lsTotal + rwTotal;
+            const max = getMaxPoints(currentLevel);
+            const percentage = max > 0 ? (total / max) * 100 : 0;
+            
+            let classProgress = 'NI';
+            if (percentage >= 90) classProgress = 'EX';
+            else if (percentage >= 60) classProgress = 'GD';
 
-                            // [Fix] Phonics Handling: If Phonics and total is 0 (no score), use stored progress or empty
-                            if (currentClassInfo === 'Phonics' && total === 0) {
-                                classProgress = score.classProgress || '';
-                            }
-  
-                    
-  
-                            // 이름 조합
-  
-            // 이름 조합
+            if (currentLevel === 'Phonics' && total === 0) {
+                classProgress = score.classProgress || '';
+            }
   
             const displayName = sInfo ? `${sInfo.nameE} (${sInfo.nameK})` : 'Unknown';
   
-      
-  
             return {
-  
               ...score,
-  
               name: displayName, 
-  
-              classInfo: currentClassInfo, 
-  
+              classInfo: currentLevel, 
               grade: sInfo?.grade || '-',
-  
               lsTotal,
-  
               rwTotal,
-  
               total,
-  
-              classProgress, 
-  
+              classProgress, // This represents Level Progress
               percentage     
-  
             };
-  
           });
   
-        }, [scores, students, classSubjects, getMaxPoints, getStudentInfo]);
+        }, [scores, students, levelConfig, getMaxPoints, getStudentInfo]);
   
     // [3번 탭] 점수 입력용 데이터
     const inputTableData = useMemo(() => {
@@ -472,7 +407,7 @@ const parseClassSubjects = (text) => {
           id: `temp_${student.id}`,
           studentId: student.id,
           name: displayName,
-          classInfo: student.classInfo,
+          classInfo: student.classInfo, // Level Info
           grade: student.grade,
           date: targetDate,
           examId: `${inputYear}년 ${inputMonth}월 평가`,
@@ -480,7 +415,7 @@ const parseClassSubjects = (text) => {
           rw1: 0, rw2: 0, rw3: 0, rw4: 0,
           att_attendance: 'Good', att_homework: 'Good', // 태도는 Good 기본
           lsTotal: 0, rwTotal: 0, total: 0,
-          classProgress: isPhonics ? '' : 'NI', // Default
+          classProgress: isPhonics ? '' : 'NI', // Level Progress
           percentage: 0
         };
       });
@@ -500,8 +435,6 @@ const parseClassSubjects = (text) => {
     const studentDetailScores = useMemo(() => {
       if (!selectedStudentId) return [];
   
-      // [Fix] 현재 시점(now)과 해당 학생의 가장 최신 성적 날짜 중 더 미래의 시점까지 조회 범위 확장
-      // 이를 통해 점수입력(Tab 4)에서 미래 날짜(예: 다음 달) 점수를 입력해도 즉시 목록에 표시됨
       const now = new Date();
       let maxDate = now;
       
@@ -517,7 +450,6 @@ const parseClassSubjects = (text) => {
       const allMonths = [];
       let current = new Date(2020, 0, 1); 
       
-      // maxDate가 포함된 달까지 반복
       while (current <= maxDate || (current.getMonth() === maxDate.getMonth() && current.getFullYear() === maxDate.getFullYear())) {
         const yyyy = current.getFullYear();
         const mm = String(current.getMonth() + 1).padStart(2, '0');
@@ -540,8 +472,8 @@ const parseClassSubjects = (text) => {
           cp_reading: 'Good', cp_listening: 'Good', cp_writing: 'Good', cp_grammar: 'Good',
           att_attendance: 'Good', att_homework: 'Good',
           isDummy: true,
-          classInfo: '', // [Fix] 더미 데이터는 '미지정' 상태로 시작
-          classProgress: '', // [Fix] 삭제된 데이터(더미)는 등급 표시 없음
+          classInfo: '', 
+          classProgress: '', 
           percentage: 0
         };
       });
@@ -555,7 +487,6 @@ const parseClassSubjects = (text) => {
       .filter(s => s.studentId === selectedStudentId && s.date <= limitDate)
       .sort((a, b) => new Date(b.date) - new Date(a.date));
       
-    // [Fix] Deduplicate by date to prevent multiple entries for the same month in graphs/tables
     return filtered.filter((item, index, self) => 
         index === self.findIndex((t) => (
             t.date === item.date
@@ -565,7 +496,6 @@ const parseClassSubjects = (text) => {
 
   const latestScore = studentHistory.length > 0 ? studentHistory[0] : {};
   
-  // 선택된 학생 정보 (이름 조합용)
   const selectedStudentInfo = useMemo(() => {
     const s = students.find(s => s.id === selectedStudentId);
     if (!s) return {};
@@ -583,19 +513,18 @@ const parseClassSubjects = (text) => {
 
     if (dataForGraph.length === 0) return null;
 
-    // Helper to get max points for a specific class
-    const getMaxPoints = (classInfo) => {
-        const config = classSubjects[classInfo] || { ls: [], rw: [] };
+    const getMaxPoints = (levelName) => {
+        const config = levelConfig[levelName] || { ls: [], rw: [] };
         const lsMax = (config.ls || []).reduce((sum, subj) => sum + (subj.max || 0), 0);
         const rwMax = (config.rw || []).reduce((sum, subj) => sum + (subj.max || 0), 0);
-        return lsMax + rwMax || 60; // Default to 60 if calc fails
+        return lsMax + rwMax || 60; 
     };
 
     const trendData = dataForGraph.map(s => {
         const max = getMaxPoints(s.classInfo);
         return {
             ...s,
-            total: Math.round((s.total / max) * 100) // Convert to %
+            total: Math.round((s.total / max) * 100) 
         };
     });
 
@@ -621,20 +550,18 @@ const parseClassSubjects = (text) => {
       Read: s.rw4 
     }));
 
-    // Graph 5: Percentage based
     const subjectScoreAnalysisData = dataForGraph.slice(-4).map(s => {
       const max = getMaxPoints(s.classInfo);
       return {
           date: s.date.substring(5), 
           MyScore: Math.round((s.total / max) * 100),
-          ClassAvg: 75 + Math.random() * 10, // Mock avg %
-          TotalAvg: 70 + Math.random() * 10  // Mock avg %
+          LevelAvg: 75 + Math.random() * 10, 
+          TotalAvg: 70 + Math.random() * 10  
       };
     });
 
-    // Graph 7: Percentage Compare
     const compareData = dataForGraph.map(s => {
-      const scoresThisMonth = enrichedScores.filter(es => es.date === s.date && es.classInfo === s.classInfo); // Same class only
+      const scoresThisMonth = enrichedScores.filter(es => es.date === s.date && es.classInfo === s.classInfo); 
       const max = getMaxPoints(s.classInfo);
       
       let avgPercent = 0;
@@ -647,7 +574,7 @@ const parseClassSubjects = (text) => {
       return {
         date: s.date,
         MyScore: Math.round((s.total / max) * 100),
-        ClassAvg: avgPercent
+        LevelAvg: avgPercent
       };
     });
 
@@ -662,11 +589,10 @@ const parseClassSubjects = (text) => {
     const grammarData = dataForGraph.map(s => ({ date: s.date, Score: s.rw1 }));
     const readingData = dataForGraph.map(s => ({ date: s.date, Score: s.rw4 }));
 
-    // Graph 13: Deviation (Percentage Points)
     const deviationData = dataForGraph.map(s => {
       const max = getMaxPoints(s.classInfo);
       const myPercent = (s.total / max) * 100;
-      const avgPercent = 75; // Baseline average 75%
+      const avgPercent = 75; 
       return {
         date: s.date,
         Deviation: Math.round(myPercent - avgPercent)
@@ -680,7 +606,6 @@ const parseClassSubjects = (text) => {
       const q = Math.ceil(month / 3);
       const key = `${year}.${q}Q`;
       if (!quarterlyMap[key]) quarterlyMap[key] = [];
-      // Store percentage
       const max = getMaxPoints(s.classInfo);
       quarterlyMap[key].push((s.total / max) * 100);
     });
@@ -690,10 +615,9 @@ const parseClassSubjects = (text) => {
     }));
 
     return { trendData, areaData, lsStackData, rwStackData, subjectScoreAnalysisData, compareData, attitudeData, speakingData, writingData, grammarData, readingData, deviationData, quarterlyData };
-  }, [studentDetailScores, enrichedScores, classSubjects]);
+  }, [studentDetailScores, enrichedScores, levelConfig]);
 
 
-  // --- [4번 탭] 그래프 데이터 수정 ---
   const graphData = useMemo(() => {
     if (studentHistory.length === 0) return [];
     const sortedHistory = [...studentHistory].sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -729,14 +653,13 @@ const parseClassSubjects = (text) => {
 
   const getLineColor = (index) => COLORS[index % COLORS.length];
 
-  // --- 통계 데이터 ---
   const statisticsData = useMemo(() => {
     const grouped = {};
     const currentMonthTarget = `${inputYear}-${String(inputMonth).padStart(2, '0')}`;
     const validScores = enrichedScores.filter(s => s.date === currentMonthTarget);
 
     validScores.forEach(score => {
-      const key = statCriteria === 'class' ? score.classInfo : score.grade;
+      const key = statCriteria === 'level' ? score.classInfo : score.grade;
       if (!grouped[key]) grouped[key] = { name: key, count: 0, lsSum: 0, rwSum: 0, totalSum: 0 };
       grouped[key].count += 1;
       grouped[key].lsSum += score.lsTotal;
@@ -763,14 +686,13 @@ const parseClassSubjects = (text) => {
       .sort((a, b) => new Date(b) - new Date(a));
   }, [enrichedScores, selectedStudentId]);
 
-  // --- 핸들러 ---
-  const handleUpdateClassSubject = async (className, subjects) => {
+  const handleUpdateLevelSubject = async (levelName, subjects) => {
     const updatedSubjects = {
-        ...classSubjects,
-        [className]: subjects
+        ...levelConfig,
+        [levelName]: subjects
     };
     
-    setClassSubjects(updatedSubjects);
+    setLevelConfig(updatedSubjects);
     
     try {
         await setDoc(doc(db, 'settings', 'subjectConfig'), updatedSubjects);
@@ -779,9 +701,9 @@ const parseClassSubjects = (text) => {
     }
   };
 
-  const getMaxScoreForField = (classInfo, field) => {
-      const config = classSubjects[classInfo] || { ls: [], rw: [] };
-      let max = 5; // default
+  const getMaxScoreForField = (levelName, field) => {
+      const config = levelConfig[levelName] || { ls: [], rw: [] };
+      let max = 5; 
       if (field.startsWith('ls')) {
           const idx = parseInt(field.replace('ls', '')) - 1;
           if (config.ls && config.ls[idx]) max = config.ls[idx].max;
@@ -792,7 +714,6 @@ const parseClassSubjects = (text) => {
       return max;
   };
 
-  // [1번 요청] 학생 추가 핸들러 수정 (한글/영어 이름)
   const handleAddStudent = async () => {
     if (!newStudent.nameK || !newStudent.nameE) return alert('이름(한글, 영어)을 모두 입력해주세요.');
     const newId = `S${String(students.length + 1).padStart(3, '0')}`;
@@ -805,11 +726,10 @@ const parseClassSubjects = (text) => {
       classInfo: newStudent.classInfo 
     };
     
-    // Firebase Sync
     try {
         await setDoc(doc(db, 'students', newId), studentToAdd);
         setStudents([...students, studentToAdd]);
-        setNewStudent({ nameK: '', nameE: '', school: schools[0], grade: grades[0], classInfo: classes[0] }); 
+        setNewStudent({ nameK: '', nameE: '', school: schools[0], grade: grades[0], classInfo: levels[0] }); 
         alert(`${newStudent.nameE} 학생이 추가되었습니다!`);
     } catch (e) {
         console.error(e);
@@ -819,9 +739,6 @@ const parseClassSubjects = (text) => {
 
   const handleDeleteStudent = (id) => {
     if (window.confirm('학생을 삭제하면 모든 성적 데이터도 삭제됩니다.')) {
-      // Note: Real deletion from Firestore would require deleting the doc and all associated scores.
-      // For now, we just update local state as per implied scope, or user can use Firebase console.
-      // But to be better:
       alert("DB 삭제는 구현되지 않았습니다. (화면에서만 사라짐)");
       setStudents(students.filter(s => s.id !== id));
       setScores(scores.filter(s => s.studentId !== id));
@@ -832,11 +749,11 @@ const parseClassSubjects = (text) => {
     const targetDate = `${inputYear}-${String(inputMonth).padStart(2, '0')}`;
     const existingScoreIndex = scores.findIndex(s => s.studentId === studentId && s.date === targetDate);
     const student = students.find(s => s.id === studentId);
-    const classInfo = student?.classInfo || classes[0] || '';
+    const levelInfo = student?.classInfo || levels[0] || '';
 
     let cleanValue = value;
     if (typeof value === 'number') {
-        const max = getMaxScoreForField(classInfo, field);
+        const max = getMaxScoreForField(levelInfo, field);
         if (value < 0) cleanValue = 0;
         if (value > max) cleanValue = max;
     }
@@ -849,13 +766,12 @@ const parseClassSubjects = (text) => {
       setScores(newScores);
       scoreToSave = newScores[existingScoreIndex];
     } else {
-      // const student = students.find(s => s.id === studentId); // Already found above
       const newScore = {
         id: `${Date.now()}_${studentId}`,
         examId: `${inputYear}년 ${inputMonth}월 평가`,
         date: targetDate,
         studentId: studentId,
-        classInfo: student?.classInfo, // [Fix] 점수 생성 시점의 클래스 저장
+        classInfo: student?.classInfo, 
         ls1: 0, ls2: 0, ls3: 0, ls4: 0,
         rw1: 0, rw2: 0, rw3: 0, rw4: 0,
         cp_reading: 'Good', cp_listening: 'Good', cp_writing: 'Good', cp_grammar: 'Good',
@@ -867,7 +783,6 @@ const parseClassSubjects = (text) => {
       scoreToSave = newScore;
     }
 
-    // Firebase Save
     if (scoreToSave) {
         try {
              await setDoc(doc(db, 'scores', scoreToSave.id.toString()), scoreToSave);
@@ -880,11 +795,9 @@ const parseClassSubjects = (text) => {
   };
 
   const handleUpdateStudentInfo = async (field, value) => {
-    // Update Local
     const updatedStudents = students.map(s => s.id === selectedStudentId ? { ...s, [field]: value } : s);
     setStudents(updatedStudents);
     
-    // Update Firebase
     const student = students.find(s => s.id === selectedStudentId);
     if (student) {
         try {
@@ -896,16 +809,15 @@ const parseClassSubjects = (text) => {
 
   const handleDetailScoreChange = async (scoreId, field, value) => {
     let cleanValue = value;
-    // Need classInfo to validate. 
-    // If existing score, retrieve from score. If dummy, retrieve from selectedStudent.
-    let classInfo = selectedStudentInfo.classInfo;
+    
+    let levelInfo = selectedStudentInfo.classInfo;
     if (!String(scoreId).startsWith('dummy_')) {
         const s = scores.find(sc => sc.id === scoreId);
-        if (s && s.classInfo) classInfo = s.classInfo;
+        if (s && s.classInfo) levelInfo = s.classInfo;
     }
 
     if (typeof value === 'number') {
-        const max = getMaxScoreForField(classInfo, field);
+        const max = getMaxScoreForField(levelInfo, field);
         if (value < 0) cleanValue = 0;
         if (value > max) cleanValue = max;
     }
@@ -914,9 +826,8 @@ const parseClassSubjects = (text) => {
 
     if (String(scoreId).startsWith('dummy_')) {
       const dateStr = scoreId.replace('dummy_', '');
-      // [Fix] Recalculate total/progress for new dummy score
-      const sClass = selectedStudentInfo.classInfo;
-      const max = getMaxPoints(sClass);
+      const sLevel = selectedStudentInfo.classInfo;
+      const max = getMaxPoints(sLevel);
       const tempScore = { 
           ls1: 0, ls2: 0, ls3: 0, ls4: 0, 
           rw1: 0, rw2: 0, rw3: 0, rw4: 0, 
@@ -935,7 +846,7 @@ const parseClassSubjects = (text) => {
           examId: `${dateStr.split('-')[0]}년 ${parseInt(dateStr.split('-')[1])}월 평가`,
           date: dateStr,
           studentId: selectedStudentId,
-          classInfo: sClass, 
+          classInfo: sLevel, 
           ls1: 0, ls2: 0, ls3: 0, ls4: 0,
           rw1: 0, rw2: 0, rw3: 0, rw4: 0,
           lsTotal: 0, rwTotal: 0, 
@@ -953,36 +864,33 @@ const parseClassSubjects = (text) => {
       const targetScore = scores.find(s => s.id === scoreId);
       const updatedScore = { ...targetScore, [field]: cleanValue };
       
-      // [Fix] Recalculate total/progress immediately based on DYNAMIC config
-      const sClass = updatedScore.classInfo || classes[0] || '';
-      const config = classSubjects[sClass] || { ls: [], rw: [] };
+      const sLevel = updatedScore.classInfo || levels[0] || '';
+      const config = levelConfig[sLevel] || { ls: [], rw: [] };
       
       let newTotal = 0;
       let lsTotal = 0;
       let rwTotal = 0;
 
-      // Sanitize & Calculate LS
       const lsCount = config.ls ? config.ls.length : 4;
       for (let i = 1; i <= 4; i++) {
           if (i > lsCount) {
-              updatedScore[`ls${i}`] = 0; // Reset hidden scores
+              updatedScore[`ls${i}`] = 0; 
           } else {
               lsTotal += Number(updatedScore[`ls${i}`]) || 0;
           }
       }
 
-      // Sanitize & Calculate RW
       const rwCount = config.rw ? config.rw.length : 4;
       for (let i = 1; i <= 4; i++) {
           if (i > rwCount) {
-              updatedScore[`rw${i}`] = 0; // Reset hidden scores
+              updatedScore[`rw${i}`] = 0; 
           } else {
               rwTotal += Number(updatedScore[`rw${i}`]) || 0;
           }
       }
 
       newTotal = lsTotal + rwTotal;
-      const max = getMaxPoints(sClass);
+      const max = getMaxPoints(sLevel);
       
       const percent = max > 0 ? (newTotal / max) * 100 : 0;
       let newProgress = 'NI';
@@ -992,7 +900,6 @@ const parseClassSubjects = (text) => {
       updatedScore.rwTotal = rwTotal;
       updatedScore.total = newTotal;
       
-      // [Fix] Only auto-calculate classProgress if user is NOT manually editing it
       if (field !== 'classProgress') {
           updatedScore.classProgress = newProgress;
       }
@@ -1004,7 +911,6 @@ const parseClassSubjects = (text) => {
       scoreToSave = updatedScore;
     }
     
-    // Firebase Save
     if (scoreToSave) {
         try {
             await setDoc(doc(db, 'scores', scoreToSave.id.toString()), scoreToSave);
@@ -1065,7 +971,6 @@ const parseClassSubjects = (text) => {
     }
   };
 
-  // Added this handler as it was missing
   const handleEditScore = (scoreId, field, value) => {
     setScores(scores.map(s => s.id === scoreId ? { ...s, [field]: value } : s));
   };
@@ -1076,7 +981,6 @@ const parseClassSubjects = (text) => {
     setIsGeneratingAI(true);
     
     const data = latestScore;
-    // [2번 요청] 모든 이력 데이터를 요약 문자열로 변환
     const historySummary = studentHistory.map(s => 
       `[${s.examId}] L&S:${s.lsTotal}/30, R&W:${s.rwTotal}/30, Total:${s.total}/60`
     ).join('\n');
@@ -1098,7 +1002,6 @@ const parseClassSubjects = (text) => {
     } catch { alert('AI 오류 발생'); } finally { setIsGeneratingAI(false); }
   };
 
-  // [1번 요청] 학년/클래스/학교 관리 핸들러
   const handleAddGrade = async () => { 
       if (newGradeInput && !grades.includes(newGradeInput)) { 
           const newGrades = [...grades, newGradeInput];
@@ -1141,45 +1044,39 @@ const parseClassSubjects = (text) => {
       }
   };
 
-  const handleAddClass = async () => {
-    if (newClassInput && !classes.includes(newClassInput)) {
-      const newClasses = [...classes, newClassInput];
-      setClasses(newClasses);
+  const handleAddLevel = async () => {
+    if (newLevelInput && !levels.includes(newLevelInput)) {
+      const newLevels = [...levels, newLevelInput];
+      setLevels(newLevels);
       
-      // 새 클래스에 대한 기본 과목 설정 추가
-      const newSubjectConfig = { ...classSubjects };
-      // Use empty config for new class or a default template?
-      // Let's use a  default if not in file, or just empty.
-      newSubjectConfig[newClassInput] = { ls: [], rw: [], lsTitle: 'L&S', rwTitle: 'R&W' }; 
-      setClassSubjects(newSubjectConfig);
+      const newSubjectConfig = { ...levelConfig };
+      newSubjectConfig[newLevelInput] = { ls: [], rw: [], lsTitle: 'L&S', rwTitle: 'R&W' }; 
+      setLevelConfig(newSubjectConfig);
 
-      // Firebase 저장
       try {
         if(db) {
-          await setDoc(doc(db, 'settings', 'classList'), { list: newClasses });
+          await setDoc(doc(db, 'settings', 'classList'), { list: newLevels });
           await setDoc(doc(db, 'settings', 'subjectConfig'), newSubjectConfig);
         }
-      } catch(e) { console.error("Error saving class:", e); }
+      } catch(e) { console.error("Error saving level:", e); }
       
-      setNewClassInput('');
+      setNewLevelInput('');
     }
   };
 
-  const handleDeleteClass = async (c) => {
-    if (window.confirm(`'${c}' 클래스를 삭제하시겠습니까?`)) {
-      const newClasses = classes.filter(item => item !== c);
-      setClasses(newClasses);
+  const handleDeleteLevel = async (c) => {
+    if (window.confirm(`'${c}' 레벨을 삭제하시겠습니까?`)) {
+      const newLevels = levels.filter(item => item !== c);
+      setLevels(newLevels);
       
-      // Firebase 저장
       try {
         if(db) {
-           await setDoc(doc(db, 'settings', 'classList'), { list: newClasses });
+           await setDoc(doc(db, 'settings', 'classList'), { list: newLevels });
         }
-      } catch(e) { console.error("Error deleting class:", e); }
+      } catch(e) { console.error("Error deleting level:", e); }
     }
   };
 
-  // [2번 요청] 그래프 선택 핸들러
   const toggleReportGraph = (graphId) => {
     if (selectedReportGraphs.includes(graphId)) {
       setSelectedReportGraphs(selectedReportGraphs.filter(id => id !== graphId));
@@ -1188,7 +1085,6 @@ const parseClassSubjects = (text) => {
     }
   };
 
-  // Sorted Graphs for Report
   const sortedReportGraphs = useMemo(() => [...selectedReportGraphs].sort((a, b) => a - b), [selectedReportGraphs]);
   const page2Charts = sortedReportGraphs.slice(0, 2);
   const extraPages = useMemo(() => {
@@ -1200,6 +1096,28 @@ const parseClassSubjects = (text) => {
     return pages;
   }, [sortedReportGraphs]);
 
+  // 임시 데이터 생성 (특수 학생)
+  const handleSeedSpecialData = async () => {
+      if(!db) return;
+      if(window.confirm('테스트용 특수 학생 5명을 생성하시겠습니까?')) {
+          const batch = writeBatch(db);
+          const specialStudents = [
+              { id: 'ST001', nameK: '꾸준이', nameE: 'Steady', school: 'Test A', grade: 'G5', classInfo: levels[0] || 'Starter' },
+              { id: 'ST002', nameK: '성장이', nameE: 'Grow', school: 'Test A', grade: 'G4', classInfo: levels[0] || 'Starter' },
+              { id: 'ST003', nameK: '노력이', nameE: 'Try', school: 'Test B', grade: 'G3', classInfo: levels[0] || 'Starter' },
+              { id: 'ST004', nameK: '천재', nameE: 'Genius', school: 'Test C', grade: 'G6', classInfo: levels[1] || 'Basic' },
+              { id: 'ST005', nameK: '시작이', nameE: 'Begin', school: 'Test A', grade: 'G1', classInfo: 'Phonics' }
+          ];
+          specialStudents.forEach(s => {
+              const ref = doc(db, 'students', s.id);
+              batch.set(ref, s);
+          });
+          await batch.commit();
+          setStudents([...students, ...specialStudents.filter(s => !students.find(e => e.id === s.id))]);
+          alert('생성 완료');
+      }
+  };
+
 
   return (
     <>
@@ -1210,16 +1128,15 @@ const parseClassSubjects = (text) => {
           margin: 0;
           padding: 0;
           background-color: #f9fafb;
-          color-scheme: light; /* Force light mode */
+          color-scheme: light;
         }
-        /* [1번 요청] 화살표 버튼 높이/너비 개선 */
         input[type=number]::-webkit-inner-spin-button, 
         input[type=number]::-webkit-outer-spin-button {  
            transform: scale(1.5);
            margin-left: 5px;
            cursor: pointer;
            opacity: 1;
-           padding: 4px; /* 터치 영역 확보 */
+           padding: 4px;
         }
         @media print {
           body { -webkit-print-color-adjust: exact; }
@@ -1240,7 +1157,7 @@ const parseClassSubjects = (text) => {
               {[ 
                 { id: 'students', label: '1. 전체학생관리', icon: User }, 
                 { id: 'detail', label: '2. 세부학생관리', icon: UserCog }, 
-                { id: 'subjects', label: '3. 과목관리', icon: Settings },
+                { id: 'subjects', label: '3. 레벨관리', icon: Settings },
                 { id: 'input', label: '4. 점수입력', icon: Save }, 
                 { id: 'report', label: '5. 성적표', icon: FileText }, 
                 { id: 'dashboard', label: '6. 통계', icon: BarChart2 },
@@ -1263,12 +1180,11 @@ const parseClassSubjects = (text) => {
                 </div>
             ) : (
               <>
-                {/* TAB 1: 전체학생관리 */}
                 {activeTab === 'students' && (
                    <StudentManagement 
                      students={students}
                      grades={grades}
-                     classes={classes}
+                     levels={levels}
                      schools={schools}
                      showConfig={showConfig}
                      setShowConfig={setShowConfig}
@@ -1282,17 +1198,17 @@ const parseClassSubjects = (text) => {
                      setNewGradeInput={setNewGradeInput}
                      handleAddGrade={handleAddGrade}
                      handleDeleteGrade={handleDeleteGrade}
-                     newClassInput={newClassInput}
-                     setNewClassInput={setNewClassInput}
-                     handleAddClass={handleAddClass}
-                     handleDeleteClass={handleDeleteClass}
+                     newLevelInput={newLevelInput}
+                     setNewLevelInput={setNewLevelInput}
+                     handleAddLevel={handleAddLevel}
+                     handleDeleteLevel={handleDeleteLevel}
                      handleAddStudent={handleAddStudent}
                      handleDeleteStudent={handleDeleteStudent}
                      handleNameClick={handleNameClick}
+                     handleSeedSpecialData={handleSeedSpecialData}
                    />
                 )}
 
-                {/* TAB 2: 세부학생관리 */}
                 {activeTab === 'detail' && (
                   <StudentDetail 
                     students={students}
@@ -1301,7 +1217,7 @@ const parseClassSubjects = (text) => {
                     selectedStudentInfo={selectedStudentInfo}
                     handleGoToReport={handleGoToReport}
                     grades={grades}
-                    classes={classes}
+                    levels={levels}
                     handleUpdateStudentInfo={handleUpdateStudentInfo}
                     studentDetailScores={studentDetailScores}
                     handleDetailScoreChange={handleDetailScoreChange}
@@ -1309,25 +1225,23 @@ const parseClassSubjects = (text) => {
                     analysisCharts={analysisCharts}
                     toggleReportGraph={toggleReportGraph}
                     selectedReportGraphs={selectedReportGraphs}
-                    classSubjects={classSubjects} 
-                    schools={schools} // [Fix] Pass schools
+                    levelConfig={levelConfig} 
+                    schools={schools} 
                   />
                 )}
 
-                {/* TAB 3: 과목관리 (NEW) */}
                 {activeTab === 'subjects' && (
-                  <SubjectManagement
-                    classes={classes}
-                    classSubjects={classSubjects}
-                    handleUpdateClassSubject={handleUpdateClassSubject}
-                    newClassInput={newClassInput}
-                    setNewClassInput={setNewClassInput}
-                    handleAddClass={handleAddClass}
-                    handleDeleteClass={handleDeleteClass}
+                  <LevelManagement
+                    levels={levels}
+                    levelConfig={levelConfig}
+                    handleUpdateLevelSubject={handleUpdateLevelSubject}
+                    newLevelInput={newLevelInput}
+                    setNewLevelInput={setNewLevelInput}
+                    handleAddLevel={handleAddLevel}
+                    handleDeleteLevel={handleDeleteLevel}
                   />
                 )}
 
-                {/* TAB 4: 점수 입력 (Renumbered) */}
                 {activeTab === 'input' && (
                   <ScoreInput 
                     inputYear={inputYear}
@@ -1343,12 +1257,11 @@ const parseClassSubjects = (text) => {
                     inputTableData={inputTableData}
                     handleInputScoreChange={handleInputScoreChange}
                     handleResetScore={handleResetScore}
-                    classes={classes} // Pass classes for filtering
-                    classSubjects={classSubjects} // Pass configuration
+                    levels={levels} 
+                    levelConfig={levelConfig} 
                   />
                 )}
 
-                {/* TAB 5: 성적표 (Renumbered) */}
                 {activeTab === 'report' && (
                   <ReportCard 
                     students={students}
@@ -1367,16 +1280,15 @@ const parseClassSubjects = (text) => {
                     page2Charts={page2Charts}
                     extraPages={extraPages}
                     analysisCharts={analysisCharts}
-                    classSubjects={classSubjects} // Pass configuration
-                    reportDate={reportDate} // [New]
-                    setReportDate={setReportDate} // [New]
-                    YEARS={YEARS} // [New]
-                    MONTHS={MONTHS} // [New]
-                    availableDates={availableDates} // [New]
+                    levelConfig={levelConfig}
+                    reportDate={reportDate} 
+                    setReportDate={setReportDate}
+                    YEARS={YEARS}
+                    MONTHS={MONTHS}
+                    availableDates={availableDates}
                   />
                 )}
 
-                {/* TAB 6: 통계 (Renumbered) */}
                 {activeTab === 'dashboard' && (
                   <Statistics 
                     statCriteria={statCriteria}
@@ -1387,12 +1299,10 @@ const parseClassSubjects = (text) => {
                   />
                 )}
 
-                {/* TAB 7: 버전 관리 */}
                 {activeTab === 'version' && (
                   <VersionHistory />
                 )}
 
-                {/* TAB 8: 기능 문의하기 */}
                 {activeTab === 'request' && (
                   <FeatureRequest db={db} />
                 )}

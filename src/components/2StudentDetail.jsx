@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState, useEffect } from 'react';
 import { ExternalLink, Save, Trash2, Activity, TrendingUp, Layers, BarChart as BarChartIcon, LineChart as LineChartIcon, Sparkles, CheckSquare, Square, Filter } from 'lucide-react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, Area, AreaChart, ComposedChart } from 'recharts';
@@ -9,7 +10,7 @@ const StudentDetail = ({
   selectedStudentInfo,
   handleGoToReport,
   grades,
-  classes,
+  levels,
   handleUpdateStudentInfo,
   studentDetailScores,
   handleDetailScoreChange,
@@ -17,37 +18,37 @@ const StudentDetail = ({
   analysisCharts,
   toggleReportGraph,
   selectedReportGraphs,
-  classSubjects,
+  levelConfig,
   schools 
 }) => {
   
-  const [dashboardClassFilter, setDashboardClassFilter] = useState('ALL');
+  const [dashboardLevelFilter, setDashboardLevelFilter] = useState('ALL');
 
-  const availableHistoryClasses = useMemo(() => {
+  const availableHistoryLevels = useMemo(() => {
     if (!studentDetailScores) return [];
-    const classSet = new Set();
+    const levelSet = new Set();
     studentDetailScores.forEach(s => {
         if (s.classInfo && !s.isDummy) {
-            classSet.add(s.classInfo);
+            levelSet.add(s.classInfo);
         }
     });
     if (selectedStudentInfo.classInfo) {
-        classSet.add(selectedStudentInfo.classInfo);
+        levelSet.add(selectedStudentInfo.classInfo);
     }
-    return Array.from(classSet).sort();
+    return Array.from(levelSet).sort();
   }, [studentDetailScores, selectedStudentInfo]);
 
   useEffect(() => {
       if (selectedStudentInfo.classInfo) {
-          setDashboardClassFilter(selectedStudentInfo.classInfo);
+          setDashboardLevelFilter(selectedStudentInfo.classInfo);
       } else {
-          setDashboardClassFilter('ALL');
+          setDashboardLevelFilter('ALL');
       }
   }, [selectedStudentId, selectedStudentInfo.classInfo]);
 
   const axisMaxPoints = useMemo(() => {
-    const targetClass = dashboardClassFilter !== 'ALL' ? dashboardClassFilter : selectedStudentInfo.classInfo;
-    const config = classSubjects[targetClass] || { ls: [], rw: [] };
+    const targetLevel = dashboardLevelFilter !== 'ALL' ? dashboardLevelFilter : selectedStudentInfo.classInfo;
+    const config = levelConfig[targetLevel] || { ls: [], rw: [] };
     
     const lsMax = (config.ls || []).reduce((acc, cur) => acc + (cur.max || 0), 0);
     const rwMax = (config.rw || []).reduce((acc, cur) => acc + (cur.max || 0), 0);
@@ -56,19 +57,19 @@ const StudentDetail = ({
         ls: lsMax > 0 ? lsMax : 30,
         rw: rwMax > 0 ? rwMax : 30
     };
-  }, [classSubjects, dashboardClassFilter, selectedStudentInfo.classInfo]);
+  }, [levelConfig, dashboardLevelFilter, selectedStudentInfo.classInfo]);
 
 
   const filteredCharts = useMemo(() => {
       if (!analysisCharts) return null;
-      if (dashboardClassFilter === 'ALL') return analysisCharts;
+      if (dashboardLevelFilter === 'ALL') return analysisCharts;
 
       const filterData = (data) => {
           if (!data) return [];
           return data.filter(item => {
               const score = studentDetailScores.find(s => s.date === item.date);
-              const itemClass = score?.classInfo || selectedStudentInfo.classInfo; 
-              return itemClass === dashboardClassFilter;
+              const itemLevel = score?.classInfo || selectedStudentInfo.classInfo; 
+              return itemLevel === dashboardLevelFilter;
           });
       };
 
@@ -84,22 +85,20 @@ const StudentDetail = ({
           deviationData: filterData(analysisCharts.deviationData),
           quarterlyData: analysisCharts.quarterlyData 
       };
-  }, [analysisCharts, dashboardClassFilter, studentDetailScores, selectedStudentInfo]);
+  }, [analysisCharts, dashboardLevelFilter, studentDetailScores, selectedStudentInfo]);
 
-  // [수정] 동적 그래프 생성 (11번부터 시작)
   const dynamicSubjectCharts = useMemo(() => {
     if (!studentDetailScores) return [];
 
-    const targetClass = dashboardClassFilter !== 'ALL' ? dashboardClassFilter : selectedStudentInfo.classInfo;
-    const config = classSubjects[targetClass] || { ls: [], rw: [] };
+    const targetLevel = dashboardLevelFilter !== 'ALL' ? dashboardLevelFilter : selectedStudentInfo.classInfo;
+    const config = levelConfig[targetLevel] || { ls: [], rw: [] };
     
     const validScores = studentDetailScores.filter(s => {
         if (s.isDummy) return false;
-        if (dashboardClassFilter !== 'ALL' && s.classInfo !== dashboardClassFilter) return false;
+        if (dashboardLevelFilter !== 'ALL' && s.classInfo !== dashboardLevelFilter) return false;
         return true;
     }).sort((a, b) => new Date(a.date) - new Date(b.date));
 
-    // L&S와 R&W의 전체 개수를 파악하여 번호 매김
     const lsCount = (config.ls || []).length;
     
     const createChartObj = (subject, idx, type) => {
@@ -112,9 +111,6 @@ const StudentDetail = ({
         const chartId = type === 'ls' ? 100 + idx : 200 + idx;
         const color = type === 'ls' ? '#ff7300' : '#387908';
         
-        // [수정] 번호 계산: 11번부터 시작
-        // L&S: 11 + idx
-        // R&W: 11 + lsCount + idx
         const displayNum = 11 + (type === 'rw' ? lsCount : 0) + idx;
 
         return {
@@ -143,22 +139,22 @@ const StudentDetail = ({
 
     return [...lsCharts, ...rwCharts];
 
-  }, [studentDetailScores, dashboardClassFilter, selectedStudentInfo, classSubjects]);
+  }, [studentDetailScores, dashboardLevelFilter, selectedStudentInfo, levelConfig]);
 
 
   const currentSubjects = useMemo(() => {
-      if (selectedStudentInfo.classInfo && classSubjects && classSubjects[selectedStudentInfo.classInfo]) {
-          return classSubjects[selectedStudentInfo.classInfo];
+      if (selectedStudentInfo.classInfo && levelConfig && levelConfig[selectedStudentInfo.classInfo]) {
+          return levelConfig[selectedStudentInfo.classInfo];
       }
     return {
       ls: Array(4).fill({ name: 'LS', max: 5 }),
       rw: Array(4).fill({ name: 'RW', max: 5 })
     };
-  }, [selectedStudentInfo.classInfo, classSubjects]);
+  }, [selectedStudentInfo.classInfo, levelConfig]);
 
   const getRowSubjects = (classInfo) => {
-    if (classInfo && classSubjects && classSubjects[classInfo]) {
-        return classSubjects[classInfo];
+    if (classInfo && levelConfig && levelConfig[classInfo]) {
+        return levelConfig[classInfo];
     }
     return {
         ls: Array(4).fill({ name: 'LS', max: 5 }),
@@ -177,20 +173,20 @@ const StudentDetail = ({
 
       if (studentDetailScores) {
           studentDetailScores.forEach(s => {
-             const sClass = s.classInfo;
-             if (sClass && classSubjects && classSubjects[sClass]) {
-                 maxLs = Math.max(maxLs, classSubjects[sClass].ls?.length || 0);
-                 maxRw = Math.max(maxRw, classSubjects[sClass].rw?.length || 0);
+             const sLevel = s.classInfo;
+             if (sLevel && levelConfig && levelConfig[sLevel]) {
+                 maxLs = Math.max(maxLs, levelConfig[sLevel].ls?.length || 0);
+                 maxRw = Math.max(maxRw, levelConfig[sLevel].rw?.length || 0);
              }
           });
       }
       
       return { ls: Math.max(maxLs, 4), rw: Math.max(maxRw, 4) };
-  }, [studentDetailScores, currentSubjects, classSubjects, selectedStudentInfo]);
+  }, [studentDetailScores, currentSubjects, levelConfig, selectedStudentInfo]);
 
   const getShortName = (name) => name ? name.split('(')[0].trim() : '';
 
-  const getClassProgressColor = (val) => {
+  const getLevelProgressColor = (val) => {
     if (!val) return 'text-gray-400';
     if (val === 'EX' || val === 'Excellent') return 'text-indigo-600';
     if (val === 'GD' || val === 'Good') return 'text-green-600';
@@ -198,7 +194,6 @@ const StudentDetail = ({
     return 'text-gray-600';
   };
 
-  // [수정] 대시보드 그래프 순서 재구성: Fixed(1~10) -> Dynamic(11~)
   const allDashboardCharts = useMemo(() => {
       if (!filteredCharts) return [];
       
@@ -216,25 +211,22 @@ const StudentDetail = ({
               <div className="h-48"><ResponsiveContainer><BarChart data={filteredCharts.rwStackData}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="date" tick={{fontSize:10}}/><YAxis domain={[0, axisMaxPoints.rw]}/><RechartsTooltip formatter={(value) => Number(value).toFixed(2)}/><Bar dataKey="Gram" stackId="a" fill="#8884d8"/><Bar dataKey="Writ" stackId="a" fill="#82ca9d"/><Bar dataKey="Prac" stackId="a" fill="#ffc658"/><Bar dataKey="Read" stackId="a" fill="#ff8042"/></BarChart></ResponsiveContainer></div>
           )},
           { id: 5, title: '5. 회차별 종합 성적 비교 (%)', icon: LineChartIcon, content: (
-              <div className="h-48"><ResponsiveContainer><LineChart data={filteredCharts.subjectScoreAnalysisData}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="date" tick={{fontSize:10}}/><YAxis domain={['auto', 'auto']}/><RechartsTooltip formatter={(value) => value}/><Legend verticalAlign="top" height={36}/><Line type="monotone" dataKey="MyScore" stroke="#D97706" strokeWidth={2} name="내점수"/><Line type="monotone" dataKey="ClassAvg" stroke="#F59E0B" strokeWidth={2} name="반평균"/><Line type="monotone" dataKey="TotalAvg" stroke="#10B981" strokeWidth={2} name="전체응시생"/></LineChart></ResponsiveContainer></div>
+              <div className="h-48"><ResponsiveContainer><LineChart data={filteredCharts.subjectScoreAnalysisData}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="date" tick={{fontSize:10}}/><YAxis domain={['auto', 'auto']}/><RechartsTooltip formatter={(value) => value}/><Legend verticalAlign="top" height={36}/><Line type="monotone" dataKey="MyScore" stroke="#D97706" strokeWidth={2} name="내점수"/><Line type="monotone" dataKey="LevelAvg" stroke="#F59E0B" strokeWidth={2} name="레벨평균"/><Line type="monotone" dataKey="TotalAvg" stroke="#10B981" strokeWidth={2} name="전체응시생"/></LineChart></ResponsiveContainer></div>
           )},
-          { id: 7, title: '7. 클래스 평균 대비 위치 (%)', icon: TrendingUp, content: (
-              <div className="h-48"><ResponsiveContainer><ComposedChart data={filteredCharts.compareData}><CartesianGrid stroke="#f5f5f5"/><XAxis dataKey="date" tick={{fontSize:10}}/><YAxis domain={[0, 100]}/><RechartsTooltip formatter={(value) => value}/><Bar dataKey="ClassAvg" barSize={20} fill="#ff7300"/><Line type="monotone" dataKey="MyScore" stroke="#413ea0" strokeWidth={3}/></ComposedChart></ResponsiveContainer></div>
+          { id: 7, title: '7. 레벨 평균 대비 위치 (%)', icon: TrendingUp, content: (
+              <div className="h-48"><ResponsiveContainer><ComposedChart data={filteredCharts.compareData}><CartesianGrid stroke="#f5f5f5"/><XAxis dataKey="date" tick={{fontSize:10}}/><YAxis domain={[0, 100]}/><RechartsTooltip formatter={(value) => value}/><Bar dataKey="LevelAvg" barSize={20} fill="#ff7300"/><Line type="monotone" dataKey="MyScore" stroke="#413ea0" strokeWidth={3}/></ComposedChart></ResponsiveContainer></div>
           )},
           { id: 8, title: '8. 월별 태도 변화', icon: Sparkles, content: (
               <div className="h-48"><ResponsiveContainer><LineChart data={filteredCharts.attitudeData}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="date" tick={{fontSize:10}}/><YAxis domain={[0,12]} ticks={[3, 7, 10]} tickFormatter={(val) => val === 10 ? 'Ex' : val === 7 ? 'Gd' : 'NI'} width={40} tick={{fontSize: 10}}/><RechartsTooltip formatter={(val) => val === 10 ? 'Excellent' : val === 7 ? 'Good' : val === 3 ? 'NI' : val}/><Line type="step" dataKey="Attendance" stroke="#82ca9d"/><Line type="step" dataKey="Homework" stroke="#8884d8"/></LineChart></ResponsiveContainer></div>
           )},
-          // [수정] 9번 (구 13번)
           { id: 9, title: '9. 평균 대비 편차 (Avg: 75%)', icon: null, content: (
               <div className="h-48"><ResponsiveContainer><BarChart data={filteredCharts.deviationData}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="date" tick={{fontSize:10}}/><YAxis/><RechartsTooltip formatter={(value) => `${value}%p`}/><Bar dataKey="Deviation" fill="#8884d8" /></BarChart></ResponsiveContainer></div>
           )},
-          // [수정] 10번 (구 14번)
           { id: 10, title: '10. 분기별 평균 점수 (%)', icon: null, content: (
               <div className="h-48"><ResponsiveContainer><BarChart data={filteredCharts.quarterlyData}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="name" tick={{fontSize:10}}/><YAxis domain={[0,100]}/><RechartsTooltip formatter={(value) => `${value}%`}/><Bar dataKey="Avg" fill="#82ca9d" /></BarChart></ResponsiveContainer></div>
           )}
       ];
       
-      // 순서: Fixed(1~10) -> Dynamic(11~)
       return [...fixedCharts, ...dynamicSubjectCharts];
 
   }, [filteredCharts, dynamicSubjectCharts, axisMaxPoints]);
@@ -277,7 +269,7 @@ const StudentDetail = ({
                   </select>
               </div>
               <div><label className="text-xs font-bold text-gray-500">학년</label><select className="w-full border p-1 rounded bg-white" value={selectedStudentInfo.grade || ''} onChange={(e) => handleUpdateStudentInfo('grade', e.target.value)}>{grades.map(g => <option key={g} value={g}>{g}</option>)}</select></div>
-              <div><label className="text-xs font-bold text-gray-500">Class</label><select className="w-full border p-1 rounded bg-white" value={selectedStudentInfo.classInfo || ''} onChange={(e) => handleUpdateStudentInfo('classInfo', e.target.value)}>{classes.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
+              <div><label className="text-xs font-bold text-gray-500">Level</label><select className="w-full border p-1 rounded bg-white" value={selectedStudentInfo.classInfo || ''} onChange={(e) => handleUpdateStudentInfo('classInfo', e.target.value)}>{levels.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
             </div>
 
             {/* 전체 기간 성적 관리 (Scrollable) */}
@@ -289,10 +281,10 @@ const StudentDetail = ({
                     <thead className="bg-gray-100 text-gray-700 font-bold sticky top-0 z-10 shadow-sm">
                       <tr>
                         <th rowSpan="2" className="p-2 border-b border-r bg-gray-100 z-20 w-24">Date</th>
-                        <th rowSpan="2" className="p-2 border-b border-r bg-gray-100 z-20 w-24">Class</th>
+                        <th rowSpan="2" className="p-2 border-b border-r bg-gray-100 z-20 w-24">Level</th>
                         <th colSpan={maxSubjectCounts.ls} className="p-1 border bg-blue-100 text-blue-900 border-b-2 border-blue-300">Monthly Eval (L&S)</th>
                         <th colSpan={maxSubjectCounts.rw} className="p-1 border bg-green-100 text-green-900 border-b-2 border-green-300">Monthly Eval (R&W)</th>
-                        <th colSpan="1" className="p-1 border bg-purple-100 text-purple-900 border-b-2 border-purple-300">Class Progress</th>
+                        <th colSpan="1" className="p-1 border bg-purple-100 text-purple-900 border-b-2 border-purple-300">Level Progress</th>
                         <th colSpan="2" className="p-1 border bg-yellow-100 text-yellow-900 border-b-2 border-yellow-300">Attitude</th>
                         <th rowSpan="2" className="p-2 border-b border-r bg-gray-100 w-16">Total</th>
                         <th rowSpan="2" className="p-2 border-b border-r bg-gray-100 w-16">Score(%)</th>
@@ -322,7 +314,7 @@ const StudentDetail = ({
                     <tbody>
                       {studentDetailScores.map(score => {
                         const rowSubjects = getRowSubjects(score.classInfo || selectedStudentInfo.classInfo);
-                        const isDifferentClass = score.classInfo && score.classInfo !== selectedStudentInfo.classInfo;
+                        const isDifferentLevel = score.classInfo && score.classInfo !== selectedStudentInfo.classInfo;
                         const rawMaxPoints = (rowSubjects.ls.reduce((acc, cur) => acc + (cur.max || 0), 0) + rowSubjects.rw.reduce((acc, cur) => acc + (cur.max || 0), 0));
                         const maxPoints = rawMaxPoints || 1;
                         const percentage = Math.round((score.total / maxPoints) * 100);
@@ -330,14 +322,14 @@ const StudentDetail = ({
                         return (
                         <tr key={score.id} className={`border-b h-10 ${score.isDummy ? 'bg-gray-50 opacity-60' : 'hover:bg-indigo-50'} last:border-none`}>
                           <td className="p-2 border-r bg-gray-50">{score.date}</td>
-                          <td className={`p-0 border-r h-10 ${isDifferentClass ? 'bg-yellow-50' : ''}`}>
+                          <td className={`p-0 border-r h-10 ${isDifferentLevel ? 'bg-yellow-50' : ''}`}>
                              <select 
-                                className={`w-full h-full text-center bg-transparent outline-none text-xs p-0 m-0 font-medium ${isDifferentClass ? 'text-yellow-700' : 'text-gray-600'}`}
+                                className={`w-full h-full text-center bg-transparent outline-none text-xs p-0 m-0 font-medium ${isDifferentLevel ? 'text-yellow-700' : 'text-gray-600'}`}
                                 value={score.classInfo || ''}
                                 onChange={(e) => handleDetailScoreChange(score.id, 'classInfo', e.target.value)}
                              >
                                 <option value="">(미지정)</option>
-                                {classes.map(c => <option key={c} value={c}>{c}</option>)}
+                                {levels.map(c => <option key={c} value={c}>{c}</option>)}
                              </select>
                           </td>
                           {/* L&S Dynamic Cells */}
@@ -376,15 +368,15 @@ const StudentDetail = ({
                              }
                           })}
                           
-                          {/* Class Progress (Auto or Manual) */}
+                          {/* Level Progress (Auto or Manual) */}
                           <td className="p-0 border-r h-10">
                              {rawMaxPoints > 0 ? (
-                                 <div className={`w-full h-full flex items-center justify-center font-bold text-sm ${getClassProgressColor(score.classProgress)}`}>
+                                 <div className={`w-full h-full flex items-center justify-center font-bold text-sm ${getLevelProgressColor(score.classProgress)}`}>
                                     {score.classProgress}
                                  </div>
                              ) : (
                                  <select 
-                                    className={`w-full h-full text-center bg-transparent outline-none font-bold text-sm cursor-pointer ${getClassProgressColor(score.classProgress)}`}
+                                    className={`w-full h-full text-center bg-transparent outline-none font-bold text-sm cursor-pointer ${getLevelProgressColor(score.classProgress)}`}
                                     value={score.classProgress || ''}
                                     onChange={(e) => handleDetailScoreChange(score.id, 'classProgress', e.target.value)}
                                  >
@@ -419,14 +411,14 @@ const StudentDetail = ({
                       <h3 className="font-bold text-xl text-indigo-800 flex items-center gap-2"><Activity size={24}/> 종합 분석 대시보드 (Analysis Dashboard)</h3>
                       <div className="flex items-center gap-2 bg-white border px-2 py-1 rounded-lg shadow-sm">
                           <Filter size={14} className="text-gray-500"/>
-                          <span className="text-xs font-bold text-gray-600">기간(클래스) 필터:</span>
+                          <span className="text-xs font-bold text-gray-600">기간(레벨) 필터:</span>
                           <select 
                             className="text-sm font-bold text-indigo-600 outline-none bg-transparent cursor-pointer"
-                            value={dashboardClassFilter}
-                            onChange={(e) => setDashboardClassFilter(e.target.value)}
+                            value={dashboardLevelFilter}
+                            onChange={(e) => setDashboardLevelFilter(e.target.value)}
                           >
                               <option value="ALL">전체 기간 (All History)</option>
-                              {availableHistoryClasses.map(c => (
+                              {availableHistoryLevels.map(c => (
                                   <option key={c} value={c}>{c} 과정 ({c} Only)</option>
                               ))}
                           </select>

@@ -15,10 +15,10 @@ const ScoreInput = ({
   inputTableData,
   handleInputScoreChange,
   handleResetScore,
-  classes,
-  classSubjects
+  levels,
+  levelConfig
 }) => {
-  const [selectedClassFilter, setSelectedClassFilter] = useState(classes[0]);
+  const [selectedLevelFilter, setSelectedLevelFilter] = useState(levels[0]);
   const [isFilterActive, setIsFilterActive] = useState(false); 
 
   // 필터링 로직 
@@ -26,25 +26,25 @@ const ScoreInput = ({
     if (!isFilterActive) {
         return inputTableData; 
     }
-    return inputTableData.filter(row => row.classInfo === selectedClassFilter);
-  }, [inputTableData, selectedClassFilter, isFilterActive]);
+    return inputTableData.filter(row => row.classInfo === selectedLevelFilter);
+  }, [inputTableData, selectedLevelFilter, isFilterActive]);
 
   const currentSubjects = useMemo(() => {
-    if (classSubjects && classSubjects[selectedClassFilter]) {
-      return classSubjects[selectedClassFilter];
+    if (levelConfig && levelConfig[selectedLevelFilter]) {
+      return levelConfig[selectedLevelFilter];
     }
     return {
       ls: [],
       rw: []
     };
-  }, [classSubjects, selectedClassFilter]);
+  }, [levelConfig, selectedLevelFilter]);
 
   const getShortName = (name) => name ? name.split('(')[0].trim() : '';
 
   // Helper to get subjects for a specific row
   const getRowSubjects = (classInfo) => {
-    if (classInfo && classSubjects && classSubjects[classInfo]) {
-        return classSubjects[classInfo];
+    if (classInfo && levelConfig && levelConfig[classInfo]) {
+        return levelConfig[classInfo];
     }
     return {
         ls: [],
@@ -56,27 +56,27 @@ const ScoreInput = ({
       let maxLs = 0;
       let maxRw = 0;
 
-      // 1. Current Filter Class
+      // 1. Current Filter Level
       if (currentSubjects) {
           maxLs = Math.max(maxLs, currentSubjects.ls.length);
           maxRw = Math.max(maxRw, currentSubjects.rw.length);
       }
 
-      // 2. Filtered Data Class Configs
+      // 2. Filtered Data Level Configs
       if (filteredData) {
           filteredData.forEach(row => {
-             const sClass = row.classInfo;
-             if (sClass && classSubjects && classSubjects[sClass]) {
-                 maxLs = Math.max(maxLs, classSubjects[sClass].ls?.length || 0);
-                 maxRw = Math.max(maxRw, classSubjects[sClass].rw?.length || 0);
+             const sLevel = row.classInfo;
+             if (sLevel && levelConfig && levelConfig[sLevel]) {
+                 maxLs = Math.max(maxLs, levelConfig[sLevel].ls?.length || 0);
+                 maxRw = Math.max(maxRw, levelConfig[sLevel].rw?.length || 0);
              }
           });
       }
       
       return { ls: Math.max(maxLs, 0), rw: Math.max(maxRw, 0) };
-  }, [filteredData, currentSubjects, classSubjects]);
+  }, [filteredData, currentSubjects, levelConfig]);
 
-    const getClassProgressColor = (val) => {
+    const getLevelProgressColor = (val) => {
         if (!val) return 'text-gray-400';
         if (val === 'EX' || val === 'Excellent') return 'text-indigo-600';
         if (val === 'GD' || val === 'Good') return 'text-green-600';
@@ -92,28 +92,28 @@ const ScoreInput = ({
           <div className="text-sm text-gray-500 flex items-center gap-2">
             <span>입력 시 자동 저장됩니다.</span>
             <span className={`px-2 py-0.5 rounded text-xs font-bold border ${isFilterActive ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-gray-100 text-gray-500 border-gray-200'}`}>
-               {isFilterActive ? `현재 입력 대상: ${selectedClassFilter}` : '전체 학생 표시'}
+               {isFilterActive ? `현재 입력 대상: ${selectedLevelFilter}` : '전체 학생 표시'}
             </span>
           </div>
         </div>
         <div className="flex items-center gap-4">
-           {/* Class Filter with Checkbox */}
+           {/* Level Filter with Checkbox */}
            <div className={`flex items-center gap-2 p-2 rounded-lg border transition-colors ${isFilterActive ? 'bg-indigo-50 border-indigo-200' : 'bg-gray-50 border-gray-200'}`}>
              <button 
                 onClick={() => setIsFilterActive(!isFilterActive)}
                 className="flex items-center gap-1 text-xs font-bold text-indigo-700 focus:outline-none"
              >
                 {isFilterActive ? <CheckSquare size={16} className="text-indigo-600"/> : <Square size={16} className="text-gray-400"/>}
-                <span className={isFilterActive ? 'text-indigo-700' : 'text-gray-500'}>클래스 필터:</span>
+                <span className={isFilterActive ? 'text-indigo-700' : 'text-gray-500'}>레벨 필터:</span>
              </button>
              
              <select 
-               value={selectedClassFilter} 
-               onChange={(e) => setSelectedClassFilter(e.target.value)}
+               value={selectedLevelFilter} 
+               onChange={(e) => setSelectedLevelFilter(e.target.value)}
                disabled={!isFilterActive} 
                className={`border text-sm rounded p-1 font-bold outline-none ${isFilterActive ? 'bg-white border-indigo-300 text-indigo-900' : 'bg-gray-100 border-gray-300 text-gray-400'}`}
              >
-               {classes.map(c => <option key={c} value={c}>{c}</option>)}
+               {levels.map(c => <option key={c} value={c}>{c}</option>)}
              </select>
            </div>
 
@@ -134,10 +134,10 @@ const ScoreInput = ({
           <thead className="bg-gray-100 text-gray-700 sticky top-0 z-30 font-bold shadow-sm">
             <tr>
               <th rowSpan="2" className="p-2 border bg-indigo-50 sticky left-0 z-40 w-24 cursor-pointer hover:bg-indigo-100 border-r-2 border-r-gray-300" onClick={() => handleSort('name')}>이름 <ArrowUpDown size={12} className="inline"/></th>
-              <th rowSpan="2" className="p-2 border bg-indigo-50 w-20 cursor-pointer hover:bg-indigo-100" onClick={() => handleSort('classInfo')}>Class <ArrowUpDown size={12} className="inline"/></th>
+              <th rowSpan="2" className="p-2 border bg-indigo-50 w-20 cursor-pointer hover:bg-indigo-100" onClick={() => handleSort('classInfo')}>Level <ArrowUpDown size={12} className="inline"/></th>
               <th colSpan={maxSubjectCounts.ls} className="p-1 border bg-blue-100 text-blue-900 border-b-2 border-blue-300">Monthly Eval (L&S)</th>
               <th colSpan={maxSubjectCounts.rw} className="p-1 border bg-green-100 text-green-900 border-b-2 border-green-300">Monthly Eval (R&W)</th>
-              <th colSpan="1" className="p-1 border bg-purple-100 text-purple-900 border-b-2 border-purple-300">Class Progress</th>
+              <th colSpan="1" className="p-1 border bg-purple-100 text-purple-900 border-b-2 border-purple-300">Level Progress</th>
               <th colSpan="2" className="p-1 border bg-yellow-100 text-yellow-900 border-b-2 border-yellow-300">Attitude</th>
               <th rowSpan="2" className="p-2 border bg-gray-200 w-12 sticky right-0 z-40 shadow-l cursor-pointer hover:bg-gray-300" onClick={() => handleSort('total')}>Total <ArrowUpDown size={12} className="inline"/></th>
               <th rowSpan="2" className="p-2 border bg-gray-200 w-12 sticky right-0 z-40 shadow-l">Score(%)</th>
@@ -211,15 +211,15 @@ const ScoreInput = ({
                     }
                 })}
 
-                {/* Class Progress (Auto Calculated or Manual) */}
+                {/* Level Progress (Auto Calculated or Manual) */}
                 <td className="p-0 border h-10">
                     {rawMaxPoints > 0 ? (
-                        <div className={`w-full h-full flex items-center justify-center font-bold text-sm ${getClassProgressColor(row.classProgress)}`}>
+                        <div className={`w-full h-full flex items-center justify-center font-bold text-sm ${getLevelProgressColor(row.classProgress)}`}>
                             {!row.isNew && row.classProgress}
                         </div>
                     ) : (
                         <select 
-                            className={`w-full h-full text-center bg-transparent outline-none font-bold text-sm cursor-pointer ${getClassProgressColor(row.classProgress)}`}
+                            className={`w-full h-full text-center bg-transparent outline-none font-bold text-sm cursor-pointer ${getLevelProgressColor(row.classProgress)}`}
                             value={row.classProgress || ''} 
                             onChange={e => handleInputScoreChange(row.studentId, 'classProgress', e.target.value)}
                         >
@@ -253,7 +253,7 @@ const ScoreInput = ({
             {filteredData.length === 0 && (
                 <tr>
                     <td colSpan="20" className="p-8 text-center text-gray-400">
-                        {isFilterActive ? `선택된 클래스(${selectedClassFilter})의 학생이 없습니다.` : '표시할 데이터가 없습니다.'}
+                        {isFilterActive ? `선택된 레벨(${selectedLevelFilter})의 학생이 없습니다.` : '표시할 데이터가 없습니다.'}
                     </td>
                 </tr>
             )}
