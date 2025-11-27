@@ -4,9 +4,18 @@ import { Clock, GitCommit, CheckCircle2 } from 'lucide-react';
 const VersionHistory = () => {
   const history = [
     {
+      version: '2.02',
+      date: '2025-11-27',
+      changes: [
+        '기능 버그 오류 수정: 성적표(Tab 5) 상단의 Level 표시가 학생의 현재 Class가 아닌, 해당 성적(년/월) 당시의 Class 정보를 표시하도록 수정'
+      ]
+    },
+    {
       version: '2.01',
       date: '2025-11-27',
       changes: [
+        '기능 버그 오류 수정: 성적표(Tab 5) 출력 시, 클래스가 Phonics인 경우 "문항 수", "득점", "TOTAL SCORE" 등 점수 관련 항목이 표시되지 않도록 수정 (영역 및 세부 항목만 표시)',
+        '기능 버그 오류 수정: 성적표(Tab 5) Monthly Evaluation 표의 "배점" 컬럼명을 "문항 수"로 변경',
         '기능 버그 오류 수정: 세부학생관리(Tab 2)에서 Grade(Class Progress)를 수동으로 변경해도 자동 계산 로직에 의해 값이 바뀌지 않던 문제 해결',
         '기능 버그 오류 수정: 학교(School) 및 학년(Grade) 목록 추가 시 데이터베이스(Firestore)에 영구 저장되도록 수정 (새로고침 시 데이터 유지)',
         '기능 버그 오류 수정: 점수 입력(Tab 4)의 초기화 버튼 클릭 시 DB에서도 해당 점수 데이터가 실제로 삭제되도록 수정',

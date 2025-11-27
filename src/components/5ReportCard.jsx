@@ -280,7 +280,7 @@ const ReportCard = ({
               <h1 className="text-4xl font-serif font-bold tracking-wider text-gray-900">PROGRESS REPORT</h1>
               <div className="mt-4 text-lg font-medium space-y-1">
                 <p>Name : <span className="font-bold text-xl">{selectedStudentInfo?.nameE} ({selectedStudentInfo?.nameK})</span></p>
-                <p>Grade : {selectedStudentInfo?.grade || '-'} &nbsp;|&nbsp; Level : {selectedStudentInfo?.classInfo || '-'}</p>
+                <p>Grade : {selectedStudentInfo?.grade || '-'} &nbsp;|&nbsp; Level : {latestScore?.classInfo || '-'}</p>
                 <p className="text-sm text-gray-500 mt-1">Date : {latestScore?.examId || '-'}</p>
               </div>
             </div>
@@ -295,43 +295,59 @@ const ReportCard = ({
               <div>
                 <h3 className="font-bold text-lg mb-1 flex items-center gap-2"><FileText size={18}/> Monthly Evaluation</h3>
                 <table className="w-full border-2 border-gray-800 text-sm">
-                  <thead><tr className="bg-gray-200 border-b-2 border-gray-800"><th className="p-2 border-r border-gray-400 w-1/4">영역</th><th className="p-2 border-r border-gray-400 w-1/2">세부 항목</th><th className="p-2 border-r border-gray-400">배점</th><th className="p-2">득점</th></tr></thead>
-                  <tbody>
-                      {(() => {
-                          const lsItems = currentClassConfig.config.ls || [];
-                          const rwItems = currentClassConfig.config.rw || [];
+                  {(() => {
+                      const isPhonics = latestScore?.classInfo === 'Phonics';
+                      return (
+                        <>
+                          <thead>
+                            <tr className="bg-gray-200 border-b-2 border-gray-800">
+                              <th className="p-2 border-r border-gray-400 w-1/4">영역</th>
+                              <th className="p-2 border-r border-gray-400 w-1/2">세부 항목</th>
+                              {!isPhonics && <th className="p-2 border-r border-gray-400">문항 수</th>}
+                              {!isPhonics && <th className="p-2">득점</th>}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(() => {
+                                const lsItems = currentClassConfig.config.ls || [];
+                                const rwItems = currentClassConfig.config.rw || [];
 
-                          return (
-                              <>
-                                  {lsItems.map((item, idx) => (
-                                      <tr key={`ls-${idx}`} className="border-b border-gray-300">
-                                          {idx === 0 && <td rowSpan={lsItems.length} className="p-2 border-r text-center bg-blue-50 font-bold whitespace-pre-line">{currentClassConfig.config.lsTitle || 'Listening\n& Speaking'}</td>}
-                                          <td className="p-2 border-r">{item.name}</td>
-                                          <td className="p-2 border-r text-center">{item.max}</td>
-                                          <td className="p-2 text-center font-bold">{latestScore[`ls${idx+1}`]}</td>
-                                      </tr>
-                                  ))}
-                                  {lsItems.length === 0 && <tr><td colSpan="4" className="p-2 text-center text-gray-400">No L&S Subjects</td></tr>}
+                                return (
+                                    <>
+                                        {lsItems.map((item, idx) => (
+                                            <tr key={`ls-${idx}`} className="border-b border-gray-300">
+                                                {idx === 0 && <td rowSpan={lsItems.length} className="p-2 border-r text-center bg-blue-50 font-bold whitespace-pre-line">{currentClassConfig.config.lsTitle || 'Listening\n& Speaking'}</td>}
+                                                <td className="p-2 border-r">{item.name}</td>
+                                                {!isPhonics && <td className="p-2 border-r text-center">{item.max}</td>}
+                                                {!isPhonics && <td className="p-2 text-center font-bold">{latestScore[`ls${idx+1}`]}</td>}
+                                            </tr>
+                                        ))}
+                                        {lsItems.length === 0 && <tr><td colSpan={isPhonics ? "2" : "4"} className="p-2 text-center text-gray-400">No L&S Subjects</td></tr>}
 
-                                  {rwItems.map((item, idx) => (
-                                      <tr key={`rw-${idx}`} className="border-b border-gray-300">
-                                          {idx === 0 && <td rowSpan={rwItems.length} className="p-2 border-r text-center bg-green-50 font-bold whitespace-pre-line">{currentClassConfig.config.rwTitle || 'Reading\n& Writing'}</td>}
-                                          <td className="p-2 border-r">{item.name}</td>
-                                          <td className="p-2 border-r text-center">{item.max}</td>
-                                          <td className="p-2 text-center font-bold">{latestScore[`rw${idx+1}`]}</td>
-                                      </tr>
-                                  ))}
-                                  {rwItems.length === 0 && <tr><td colSpan="4" className="p-2 text-center text-gray-400">No R&W Subjects</td></tr>}
+                                        {rwItems.map((item, idx) => (
+                                            <tr key={`rw-${idx}`} className="border-b border-gray-300">
+                                                {idx === 0 && <td rowSpan={rwItems.length} className="p-2 border-r text-center bg-green-50 font-bold whitespace-pre-line">{currentClassConfig.config.rwTitle || 'Reading\n& Writing'}</td>}
+                                                <td className="p-2 border-r">{item.name}</td>
+                                                {!isPhonics && <td className="p-2 border-r text-center">{item.max}</td>}
+                                                {!isPhonics && <td className="p-2 text-center font-bold">{latestScore[`rw${idx+1}`]}</td>}
+                                            </tr>
+                                        ))}
+                                        {rwItems.length === 0 && <tr><td colSpan={isPhonics ? "2" : "4"} className="p-2 text-center text-gray-400">No R&W Subjects</td></tr>}
 
-                                  <tr className="bg-gray-100 font-bold">
-                                      <td colSpan="2" className="p-2 border-r text-center">TOTAL SCORE</td>
-                                      <td className="p-2 border-r text-center">{currentClassConfig.totalMax}</td>
-                                      <td className="p-2 text-center text-indigo-700 text-lg">{latestScore.total}</td>
-                                  </tr>
-                              </>
-                          );
-                      })()}
-                  </tbody>
+                                        {!isPhonics && (
+                                            <tr className="bg-gray-100 font-bold">
+                                                <td colSpan="2" className="p-2 border-r text-center">TOTAL SCORE</td>
+                                                <td className="p-2 border-r text-center">{currentClassConfig.totalMax}</td>
+                                                <td className="p-2 text-center text-indigo-700 text-lg">{latestScore.total}</td>
+                                            </tr>
+                                        )}
+                                    </>
+                                );
+                            })()}
+                          </tbody>
+                        </>
+                      );
+                  })()}
                 </table>
               </div>
               {/* Class Progress */}
