@@ -9,7 +9,7 @@ import SubjectManagement from './components/3SubjectManagement';
 import ScoreInput from './components/4ScoreInput';
 import ReportCard from './components/5ReportCard';
 import Statistics from './components/6Statistics';
-import VersionHistory from './components/7VersionHistory';
+import VersionHistory, { LATEST_VERSION } from './components/7VersionHistory';
 import { GitCommit } from 'lucide-react';
 
 // [중요 2] Firebase 설정 (제공해주신 키 적용)
@@ -1228,7 +1228,7 @@ const parseClassSubjects = (text) => {
       <div className="flex flex-col min-h-screen w-full bg-gray-50 text-gray-800 font-sans">
         <header className="bg-indigo-700 text-white shadow-md sticky top-0 z-50">
           <div className="max-w-[1600px] mx-auto w-full px-4 sm:px-6 lg:px-8 h-16 flex justify-between items-center">
-            <h1 className="text-xl font-bold flex items-center gap-2"><FileText size={24} /> 미키영어 학원 성적관리 Ver 2.05</h1>
+            <h1 className="text-xl font-bold flex items-center gap-2"><FileText size={24} /> 미키영어 학원 성적관리 Ver {LATEST_VERSION}</h1>
             <div className="text-sm bg-indigo-800 px-3 py-1 rounded flex items-center gap-2"><Sparkles size={14} className="text-yellow-300"/> AI Ready</div>
           </div>
         </header>
