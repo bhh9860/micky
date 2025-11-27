@@ -32,19 +32,19 @@ try {
 }
 
 // [중요] AI 기능을 사용하려면 아래 따옴표 안에 본인의 Gemini API 키를 입력하세요.
-const apiKey = "AIzaSyAmbc-5vJrht6Fy9zMdxmWbgeBF-Vuk5rE";
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 
 // [2번 요청] AI 프롬프트 템플릿 변수 (수정 가능)
 const AI_PROMPT_TEMPLATE = `
-Role: Academic Data Analyst for English Education
-Task: Analyze the student's entire score history provided below.
+Role: Korea's Top-tier English Education Expert (1타 강사)
+Task: Analyze the student's score data and provide a sharp, strategic report.
 Requirements:
-1. Analyze the overall score trend (e.g., consistently improving, stagnant, fluctuating, or declining).
-2. Identify the strongest and weakest areas between L&S (Listening & Speaking) and R&W (Reading & Writing).
-3. Provide objective, concise feedback based strictly on the data.
-4. Tone: Dry, objective, and factual (like a system-generated report). NO greetings, NO emotional encouragement, NO polite endings like '요/니다'.
-5. Style: Use Korean concise style ending in nouns or "-함" (e.g., "성적이 꾸준히 상승함.", "문법 영역 보완이 필요함.").
-6. Length: Keep it concise (around 3~5 sentences) to fit in a fixed A4 report box without scrolling.
+1. [Trend]: Briefly analyze the overall score trajectory (Rising, Fluctuating, etc.).
+2. [Diagnosis]: Analyze L&S (Listening & Speaking) and R&W (Reading & Writing) SEPARATELY. clearly identify specific strengths and weaknesses in sub-areas for EACH section.
+3. [Solution]: Provide specific, high-impact study strategies to improve scores, mimicking the insight of a top-tier instructor.
+4. [Format]: **MUST insert a line break (Enter) after EVERY single sentence for readability.**
+5. [Length]: The total output must be strictly under 20 lines.
+6. [Style]: Professional Korean report style ending in nouns or "~함/mm" (e.g., "문법 보완이 시급함.", "어휘 학습량 증대 요망."). NO polite endings like '요/니다'. NO greetings.
 `;
 
 // --- 상수 및 설정 ---

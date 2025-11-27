@@ -3,6 +3,24 @@ import { Clock, GitCommit, CheckCircle2 } from 'lucide-react';
 
 export const VERSION_HISTORY = [
   {
+    version: '2.20',
+    date: '2025-11-27',
+    changes: [
+      '기능 개선: 성적표(Tab 5) AI 종합 분석(Teacher\'s Comment) 프롬프트 로직 고도화',
+      '상세 내용: L&S와 R&W 영역별 장단점을 각각 분리하여 정밀 분석하도록 변경하고, 국내 1타 강사 스타일의 구체적인 학습 솔루션 제공 로직 추가',
+      '가독성 강화: 모든 문장 끝에 자동 줄바꿈을 적용하고 전체 길이를 20줄 이내로 제한하여 성적표 레이아웃 가독성 최적화'
+    ]
+  },
+  {
+    version: '2.19',
+    date: '2025-11-27',
+    changes: [
+      '기능 개선: 성적표(Tab 5) 1페이지 "Detail Analysis" 방사형 그래프(Radar Chart) 로직 전면 수정',
+      '상세 내용: Monthly Evaluation 표에 포함된 모든 세부 과목(L&S, R&W)이 그래프의 꼭짓점으로 자동 생성되며, 배점 대비 득점 비율(%)에 따라 그래프 영역이 정확하게 색칠되도록 시각화 로직 정교화',
+      '디자인 안정화: 성적표 A4 출력 비율 및 내부 그래프 컨테이너 여백 최적화'
+    ]
+  },
+  {
     version: '2.18',
     date: '2025-11-27',
     changes: [
@@ -252,7 +270,7 @@ export const VERSION_HISTORY = [
     changes: [
       '시스템 복구: 최근 적용된 6가지 기능(클래스 추가/삭제, 자동 등급 산출 등)을 롤백하여 이전 안정화 버전(v2.4) 상태로 복구',
       '안정화 유지: 0으로 나누기 방지(v2.6) 및 중복 선언 오류 수정 패치는 유지됨',
-      '기능 상태: Class Progress 수동 입력 복귀, Attitude 등급 "Bad" 복귀'
+      '기능 상태: Class Progress 수동 입력 복귀, Attitude 등급의 "Bad" 복귀'
     ]
   },
   {
