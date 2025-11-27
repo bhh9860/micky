@@ -206,6 +206,9 @@ const parseClassSubjects = (text) => {
     const today = new Date();
     const [inputYear, setInputYear] = useState(today.getFullYear());
     const [inputMonth, setInputMonth] = useState(today.getMonth() + 1);
+    
+    // [New] 성적표 출력 기준 날짜 (기본값: 현재)
+    const [reportDate, setReportDate] = useState({ year: today.getFullYear(), month: today.getMonth() + 1 });
   
     const [graphMode, setGraphMode] = useState('monthly'); 
     const [isGeneratingAI, setIsGeneratingAI] = useState(false);
@@ -546,10 +549,18 @@ const parseClassSubjects = (text) => {
     }, [enrichedScores, selectedStudentId]);
 
   const studentHistory = useMemo(() => {
-    return enrichedScores
-      .filter(s => s.studentId === selectedStudentId)
+    const limitDate = `${reportDate.year}-${String(reportDate.month).padStart(2, '0')}`;
+    const filtered = enrichedScores
+      .filter(s => s.studentId === selectedStudentId && s.date <= limitDate)
       .sort((a, b) => new Date(b.date) - new Date(a.date));
-  }, [enrichedScores, selectedStudentId]);
+      
+    // [Fix] Deduplicate by date to prevent multiple entries for the same month in graphs/tables
+    return filtered.filter((item, index, self) => 
+        index === self.findIndex((t) => (
+            t.date === item.date
+        ))
+    );
+  }, [enrichedScores, selectedStudentId, reportDate]);
 
   const latestScore = studentHistory.length > 0 ? studentHistory[0] : {};
   
@@ -742,6 +753,14 @@ const parseClassSubjects = (text) => {
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [enrichedScores, inputYear, inputMonth, statCriteria]);
+
+  const availableDates = useMemo(() => {
+    if (!selectedStudentId) return [];
+    return enrichedScores
+      .filter(s => s.studentId === selectedStudentId)
+      .map(s => s.date)
+      .sort((a, b) => new Date(b) - new Date(a));
+  }, [enrichedScores, selectedStudentId]);
 
   // --- 핸들러 ---
   const handleUpdateClassSubject = async (className, subjects) => {
@@ -1209,7 +1228,7 @@ const parseClassSubjects = (text) => {
       <div className="flex flex-col min-h-screen w-full bg-gray-50 text-gray-800 font-sans">
         <header className="bg-indigo-700 text-white shadow-md sticky top-0 z-50">
           <div className="max-w-[1600px] mx-auto w-full px-4 sm:px-6 lg:px-8 h-16 flex justify-between items-center">
-            <h1 className="text-xl font-bold flex items-center gap-2"><FileText size={24} /> 미키영어학원 성적관리 Ver 4.0 (Final Fix)</h1>
+            <h1 className="text-xl font-bold flex items-center gap-2"><FileText size={24} /> 미키영어 학원 성적관리 Ver 2.05</h1>
             <div className="text-sm bg-indigo-800 px-3 py-1 rounded flex items-center gap-2"><Sparkles size={14} className="text-yellow-300"/> AI Ready</div>
           </div>
         </header>
@@ -1347,6 +1366,11 @@ const parseClassSubjects = (text) => {
                     extraPages={extraPages}
                     analysisCharts={analysisCharts}
                     classSubjects={classSubjects} // Pass configuration
+                    reportDate={reportDate} // [New]
+                    setReportDate={setReportDate} // [New]
+                    YEARS={YEARS} // [New]
+                    MONTHS={MONTHS} // [New]
+                    availableDates={availableDates} // [New]
                   />
                 )}
 

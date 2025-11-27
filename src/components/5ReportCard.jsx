@@ -19,8 +19,47 @@ const ReportCard = ({
   page2Charts,
   extraPages,
   analysisCharts,
-  classSubjects 
+  classSubjects,
+  reportDate, // [New]
+  setReportDate, // [New]
+  YEARS, // [New]
+  MONTHS, // [New]
+  availableDates // [New]
 }) => {
+
+  // [Fix] Dynamic Year/Month Options based on Data
+  const { validYears, validMonths } = useMemo(() => {
+      // Default to current date if no data
+      if (!availableDates || availableDates.length === 0) {
+          const now = new Date();
+          return { validYears: [now.getFullYear()], validMonths: [now.getMonth() + 1] };
+      }
+      
+      // Extract Years
+      const years = Array.from(new Set(availableDates.map(d => parseInt(d.split('-')[0])))).sort((a, b) => b - a);
+      
+      // Extract Months for current selected Year
+      // If selected year is not in valid list, use the first valid year for calculation
+      const currentYear = (reportDate && years.includes(reportDate.year)) ? reportDate.year : years[0];
+      
+      const months = Array.from(new Set(
+          availableDates
+            .filter(d => parseInt(d.split('-')[0]) === currentYear)
+            .map(d => parseInt(d.split('-')[1]))
+      )).sort((a, b) => b - a);
+          
+      return { validYears: years, validMonths: months };
+  }, [availableDates, reportDate]);
+
+  // [Fix] 중복 날짜 제거 (데이터 정합성 보장)
+  const uniqueHistory = useMemo(() => {
+      if (!studentHistory) return [];
+      return studentHistory.filter((item, index, self) => 
+          index === self.findIndex((t) => (
+              t.date === item.date
+          ))
+      );
+  }, [studentHistory]);
 
   const currentClassConfig = useMemo(() => {
     const sClass = latestScore?.classInfo || selectedStudentInfo.classInfo;
@@ -62,7 +101,8 @@ const ReportCard = ({
             }
         }
 
-        const historyData = [...studentHistory].sort((a, b) => new Date(a.date) - new Date(b.date));
+        // [Fix] Use uniqueHistory
+        const historyData = [...uniqueHistory].sort((a, b) => new Date(a.date) - new Date(b.date));
         const chartData = sliceData(historyData.map(s => ({
             date: s.date,
             Score: s[`${subjectType}${subjectIdx + 1}`] || 0
@@ -269,6 +309,17 @@ const ReportCard = ({
         <select className="border p-2 rounded w-64 bg-white text-gray-900" value={selectedStudentId} onChange={(e) => setSelectedStudentId(e.target.value)}>
           {students.map(s => <option key={s.id} value={s.id}>{s.nameE} ({s.nameK}) - {s.classInfo}</option>)}
         </select>
+        
+        {/* [New] Date Selector */}
+        <div className="flex items-center gap-2 ml-4 border-l pl-4 border-gray-300">
+            <label className="font-bold text-sm">출력 기준:</label>
+            <select value={reportDate?.year || ''} onChange={(e) => setReportDate && setReportDate({...reportDate, year: Number(e.target.value)})} className="border p-2 rounded bg-white text-gray-900">
+                {validYears.map(y => <option key={y} value={y}>{y}년</option>)}
+            </select>
+            <select value={reportDate?.month || ''} onChange={(e) => setReportDate && setReportDate({...reportDate, month: Number(e.target.value)})} className="border p-2 rounded bg-white text-gray-900">
+                {validMonths.map(m => <option key={m} value={m}>{m}월</option>)}
+            </select>
+        </div>
       </div>
 
       {selectedStudentId ? (
@@ -416,6 +467,12 @@ const ReportCard = ({
               </div>
             </>
           ) : <div className="text-center py-20 text-gray-500">선택된 학생의 성적 데이터가 없습니다.</div>}
+          
+          {/* Page Footer */}
+          <div className="mt-auto pt-8 w-full">
+            <div className="text-center font-bold text-gray-400 text-sm mb-2">- 1 -</div>
+            <div className="text-right text-gray-400 text-xs font-serif tracking-wider">MICKEY ENGLISH ACADEMY 미키영어</div>
+          </div>
         </div>
 
         {/* === PAGE 2: History & Trend === */}
@@ -429,7 +486,8 @@ const ReportCard = ({
               <table className="w-full border-2 border-gray-800 text-sm text-center">
                 <thead className="bg-gray-100 border-b-2 border-gray-800 font-bold"><tr><th className="p-3 border-r border-gray-300">Date</th><th className="p-3 border-r border-gray-300">L&S Score</th><th className="p-3 border-r border-gray-300">R&W Score</th><th className="p-3 bg-yellow-50">Total Score</th></tr></thead>
                 <tbody>
-                  {studentHistory.slice(0, 5).map((score) => {
+                  {/* [Fix] Use uniqueHistory */}
+                  {uniqueHistory.slice(0, 5).map((score) => {
                     const sClass = score.classInfo;
                     const config = (classSubjects && classSubjects[sClass]) ? classSubjects[sClass] : { ls: [], rw: [] };
                     const lsMax = (config.ls || []).reduce((a, b) => a + b.max, 0);
@@ -441,7 +499,7 @@ const ReportCard = ({
                         </tr>
                     );
                   })}
-                  {studentHistory.length === 0 && <tr><td colSpan="4" className="p-4">기록이 없습니다.</td></tr>}
+                  {uniqueHistory.length === 0 && <tr><td colSpan="4" className="p-4">기록이 없습니다.</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -488,6 +546,12 @@ const ReportCard = ({
                 </div>
               )}
             </div>
+            
+            {/* Page Footer */}
+            <div className="mt-auto pt-8 w-full">
+                <div className="text-center font-bold text-gray-400 text-sm mb-2">- 2 -</div>
+                <div className="text-right text-gray-400 text-xs font-serif tracking-wider">MICKEY ENGLISH ACADEMY 미키영어</div>
+            </div>
         </div>
 
         {/* === PAGE 3+: Extra Detailed Charts === */}
@@ -506,6 +570,12 @@ const ReportCard = ({
                       </div>
                     </div>
                 ))}
+              </div>
+              
+              {/* Page Footer */}
+              <div className="mt-auto pt-8 w-full">
+                  <div className="text-center font-bold text-gray-400 text-sm mb-2">- {idx + 3} -</div>
+                  <div className="text-right text-gray-400 text-xs font-serif tracking-wider">MICKEY ENGLISH ACADEMY 미키영어</div>
               </div>
           </div>
         ))}
