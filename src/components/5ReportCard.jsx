@@ -20,26 +20,21 @@ const ReportCard = ({
   extraPages,
   analysisCharts,
   classSubjects,
-  reportDate, // [New]
-  setReportDate, // [New]
-  YEARS, // [New]
-  MONTHS, // [New]
-  availableDates // [New]
+  reportDate,
+  setReportDate,
+  YEARS,
+  MONTHS,
+  availableDates
 }) => {
 
   // [Fix] Dynamic Year/Month Options based on Data
   const { validYears, validMonths } = useMemo(() => {
-      // Default to current date if no data
       if (!availableDates || availableDates.length === 0) {
           const now = new Date();
           return { validYears: [now.getFullYear()], validMonths: [now.getMonth() + 1] };
       }
       
-      // Extract Years
       const years = Array.from(new Set(availableDates.map(d => parseInt(d.split('-')[0])))).sort((a, b) => b - a);
-      
-      // Extract Months for current selected Year
-      // If selected year is not in valid list, use the first valid year for calculation
       const currentYear = (reportDate && years.includes(reportDate.year)) ? reportDate.year : years[0];
       
       const months = Array.from(new Set(
@@ -51,7 +46,7 @@ const ReportCard = ({
       return { validYears: years, validMonths: months };
   }, [availableDates, reportDate]);
 
-  // [Fix] 중복 날짜 제거 (데이터 정합성 보장)
+  // [Fix] 중복 날짜 제거
   const uniqueHistory = useMemo(() => {
       if (!studentHistory) return [];
       return studentHistory.filter((item, index, self) => 
@@ -73,10 +68,8 @@ const ReportCard = ({
 
   const renderReportGraph = (graphId) => {
     const chartMargin = { top: 25, right: 10, left: 10, bottom: 0 };
-    
     const sliceData = (data) => data ? data.slice(-8) : [];
 
-    // [동적 그래프 처리] ID 100~199 (L&S), 200~299 (R&W)
     if (graphId >= 100) {
         let subjectIdx = 0;
         let subjectType = 'ls';
@@ -101,7 +94,6 @@ const ReportCard = ({
             }
         }
 
-        // [Fix] Use uniqueHistory
         const historyData = [...uniqueHistory].sort((a, b) => new Date(a.date) - new Date(b.date));
         const chartData = sliceData(historyData.map(s => ({
             date: s.date,
@@ -180,7 +172,6 @@ const ReportCard = ({
             <YAxis width={24} domain={[0, currentClassConfig.lsMax]}/>
             <RechartsTooltip formatter={(value) => Number(value).toFixed(2)}/>
             <Legend verticalAlign="top" align="right" height={36} iconSize={10}/>
-            {/* [수정] 라벨 제거: 수치 중복 표시 방지 */}
             <Bar dataKey="Recog" stackId="a" fill="#8884d8" />
             <Bar dataKey="Resp" stackId="a" fill="#82ca9d" />
             <Bar dataKey="Retell" stackId="a" fill="#ffc658" />
@@ -196,7 +187,6 @@ const ReportCard = ({
             <YAxis width={24} domain={[0, currentClassConfig.rwMax]}/>
             <RechartsTooltip formatter={(value) => Number(value).toFixed(2)}/>
             <Legend verticalAlign="top" align="right" height={36} iconSize={10}/>
-            {/* [수정] 라벨 제거: 수치 중복 표시 방지 */}
             <Bar dataKey="Gram" stackId="a" fill="#8884d8" />
             <Bar dataKey="Writ" stackId="a" fill="#82ca9d" />
             <Bar dataKey="Prac" stackId="a" fill="#ffc658" />
@@ -226,7 +216,6 @@ const ReportCard = ({
             <YAxis width={24} domain={[0, 100]}/>
             <RechartsTooltip formatter={(value) => value}/>
             <Bar dataKey="ClassAvg" barSize={20} fill="#ff7300" label={renderCustomLabel}/>
-            {/* [수정] Line 라벨 추가: MyScore 수치 표시 */}
             <Line type="monotone" dataKey="MyScore" stroke="#413ea0" strokeWidth={3} label={renderCustomLabel} />
           </ComposedChart>
         </ResponsiveContainer>
@@ -270,24 +259,20 @@ const ReportCard = ({
   };
 
   const getGraphTitle = (id) => {
-    // 동적 그래프 제목 (11번부터 시작)
     if (id >= 100) {
         if (id >= 200) {
             const idx = id - 200;
             const subj = currentClassConfig.config.rw[idx];
-            // 11 + L&S 개수 + RW 인덱스
             const startNum = 11 + currentClassConfig.config.ls.length + idx;
             return subj ? `${startNum}. ${subj.name} 성장세` : '';
         } else {
             const idx = id - 100;
             const subj = currentClassConfig.config.ls[idx];
-            // 11 + LS 인덱스
             const startNum = 11 + idx;
             return subj ? `${startNum}. ${subj.name} 성장세` : '';
         }
     }
 
-    // 정적 그래프 제목 (9, 10번 변경됨)
     switch(id) {
       case 1: return "1. 종합 점수 추이";
       case 2: return "2. L&S vs R&W 비중 변화";
@@ -310,7 +295,6 @@ const ReportCard = ({
           {students.map(s => <option key={s.id} value={s.id}>{s.nameE} ({s.nameK}) - {s.classInfo}</option>)}
         </select>
         
-        {/* [New] Date Selector */}
         <div className="flex items-center gap-2 ml-4 border-l pl-4 border-gray-300">
             <label className="font-bold text-sm">출력 기준:</label>
             <select value={reportDate?.year || ''} onChange={(e) => setReportDate && setReportDate({...reportDate, year: Number(e.target.value)})} className="border p-2 rounded bg-white text-gray-900">
@@ -325,37 +309,40 @@ const ReportCard = ({
       {selectedStudentId ? (
       <div className="w-full flex flex-col items-center gap-8 pb-20">
         {/* === PAGE 1 === */}
-        <div style={{ width: '210mm', minHeight: '297mm', boxSizing: 'border-box' }} className="bg-white p-12 rounded-lg shadow-lg border border-gray-400 flex flex-col gap-4 mx-auto print:break-after-page">
-          <div className="flex justify-between items-end border-b-4 border-gray-800 pb-4">
+        {/* [Fixed Layout] Width: 210mm, Height: 296.1mm (Ratio 1:1.41) */}
+        {/* Padding Reduced: p-12 -> p-8 to fit content */}
+        <div style={{ width: '210mm', height: '296.1mm', boxSizing: 'border-box', overflow: 'hidden' }} className="bg-white p-8 rounded-lg shadow-lg border border-gray-400 flex flex-col gap-2 mx-auto print:break-after-page">
+          {/* Header Section: Reduced margins and text size */}
+          <div className="flex justify-between items-end border-b-4 border-gray-800 pb-2">
             <div>
-              <h1 className="text-4xl font-serif font-bold tracking-wider text-gray-900">PROGRESS REPORT</h1>
-              <div className="mt-4 text-lg font-medium space-y-1">
+              <h1 className="text-3xl font-serif font-bold tracking-wider text-gray-900">PROGRESS REPORT</h1>
+              <div className="mt-2 text-lg font-medium space-y-0.5">
                 <p>Name : <span className="font-bold text-xl">{selectedStudentInfo?.nameE} ({selectedStudentInfo?.nameK})</span></p>
                 <p>Grade : {selectedStudentInfo?.grade || '-'} &nbsp;|&nbsp; Level : {latestScore?.classInfo || '-'}</p>
-                <p className="text-sm text-gray-500 mt-1">Date : {latestScore?.examId || '-'}</p>
+                <p className="text-sm text-gray-500">Date : {latestScore?.examId || '-'}</p>
               </div>
             </div>
-            <div className="w-24 h-24 flex items-center justify-center">
+            <div className="w-20 h-20 flex items-center justify-center">
                 <img src="/logo.jpg" alt="Logo" className="w-full h-full object-contain" />
             </div>
           </div>
 
           {latestScore?.id ? (
             <>
-              {/* Monthly Evaluation */}
+              {/* Monthly Evaluation Table: Reduced padding (p-1) */}
               <div>
-                <h3 className="font-bold text-lg mb-1 flex items-center gap-2"><FileText size={18}/> Monthly Evaluation</h3>
-                <table className="w-full border-2 border-gray-800 text-sm">
+                <h3 className="font-bold text-base mb-1 flex items-center gap-2"><FileText size={16}/> Monthly Evaluation</h3>
+                <table className="w-full border-2 border-gray-800 text-xs">
                   {(() => {
                       const isPhonics = latestScore?.classInfo === 'Phonics';
                       return (
                         <>
                           <thead>
                             <tr className="bg-gray-200 border-b-2 border-gray-800">
-                              <th className="p-2 border-r border-gray-400 w-1/4">영역</th>
-                              <th className="p-2 border-r border-gray-400 w-1/2">세부 항목</th>
-                              {!isPhonics && <th className="p-2 border-r border-gray-400">문항 수</th>}
-                              {!isPhonics && <th className="p-2">득점</th>}
+                              <th className="p-1 border-r border-gray-400 w-1/4">영역</th>
+                              <th className="p-1 border-r border-gray-400 w-1/2">세부 항목</th>
+                              {!isPhonics && <th className="p-1 border-r border-gray-400">문항 수</th>}
+                              {!isPhonics && <th className="p-1">득점</th>}
                             </tr>
                           </thead>
                           <tbody>
@@ -367,29 +354,29 @@ const ReportCard = ({
                                     <>
                                         {lsItems.map((item, idx) => (
                                             <tr key={`ls-${idx}`} className="border-b border-gray-300">
-                                                {idx === 0 && <td rowSpan={lsItems.length} className="p-2 border-r text-center bg-blue-50 font-bold whitespace-pre-line">{currentClassConfig.config.lsTitle || 'Listening\n& Speaking'}</td>}
-                                                <td className="p-2 border-r">{item.name}</td>
-                                                {!isPhonics && <td className="p-2 border-r text-center">{item.max}</td>}
-                                                {!isPhonics && <td className="p-2 text-center font-bold">{latestScore[`ls${idx+1}`]}</td>}
+                                                {idx === 0 && <td rowSpan={lsItems.length} className="p-1 border-r text-center bg-blue-50 font-bold whitespace-pre-line">{currentClassConfig.config.lsTitle || 'Listening\n& Speaking'}</td>}
+                                                <td className="p-1 border-r">{item.name}</td>
+                                                {!isPhonics && <td className="p-1 border-r text-center">{item.max}</td>}
+                                                {!isPhonics && <td className="p-1 text-center font-bold">{latestScore[`ls${idx+1}`]}</td>}
                                             </tr>
                                         ))}
-                                        {lsItems.length === 0 && <tr><td colSpan={isPhonics ? "2" : "4"} className="p-2 text-center text-gray-400">No L&S Subjects</td></tr>}
+                                        {lsItems.length === 0 && <tr><td colSpan={isPhonics ? "2" : "4"} className="p-1 text-center text-gray-400">No L&S Subjects</td></tr>}
 
                                         {rwItems.map((item, idx) => (
                                             <tr key={`rw-${idx}`} className="border-b border-gray-300">
-                                                {idx === 0 && <td rowSpan={rwItems.length} className="p-2 border-r text-center bg-green-50 font-bold whitespace-pre-line">{currentClassConfig.config.rwTitle || 'Reading\n& Writing'}</td>}
-                                                <td className="p-2 border-r">{item.name}</td>
-                                                {!isPhonics && <td className="p-2 border-r text-center">{item.max}</td>}
-                                                {!isPhonics && <td className="p-2 text-center font-bold">{latestScore[`rw${idx+1}`]}</td>}
+                                                {idx === 0 && <td rowSpan={rwItems.length} className="p-1 border-r text-center bg-green-50 font-bold whitespace-pre-line">{currentClassConfig.config.rwTitle || 'Reading\n& Writing'}</td>}
+                                                <td className="p-1 border-r">{item.name}</td>
+                                                {!isPhonics && <td className="p-1 border-r text-center">{item.max}</td>}
+                                                {!isPhonics && <td className="p-1 text-center font-bold">{latestScore[`rw${idx+1}`]}</td>}
                                             </tr>
                                         ))}
-                                        {rwItems.length === 0 && <tr><td colSpan={isPhonics ? "2" : "4"} className="p-2 text-center text-gray-400">No R&W Subjects</td></tr>}
+                                        {rwItems.length === 0 && <tr><td colSpan={isPhonics ? "2" : "4"} className="p-1 text-center text-gray-400">No R&W Subjects</td></tr>}
 
                                         {!isPhonics && (
                                             <tr className="bg-gray-100 font-bold">
-                                                <td colSpan="2" className="p-2 border-r text-center">TOTAL SCORE</td>
-                                                <td className="p-2 border-r text-center">{currentClassConfig.totalMax}</td>
-                                                <td className="p-2 text-center text-indigo-700 text-lg">{latestScore.total}</td>
+                                                <td colSpan="2" className="p-1 border-r text-center">TOTAL SCORE</td>
+                                                <td className="p-1 border-r text-center">{currentClassConfig.totalMax}</td>
+                                                <td className="p-1 text-center text-indigo-700 text-base">{latestScore.total}</td>
                                             </tr>
                                         )}
                                     </>
@@ -403,90 +390,109 @@ const ReportCard = ({
               </div>
               {/* Class Progress */}
               <div>
-                <h3 className="font-bold text-lg mb-1 flex items-center gap-2"><FileText size={18}/> Class Progress</h3>
+                <h3 className="font-bold text-base mb-1 flex items-center gap-2"><FileText size={16}/> Class Progress</h3>
                 <table className="w-full border-2 border-gray-800 text-sm text-center">
-                  <thead className="bg-gray-200 border-b-2 border-gray-800"><tr><th className="p-2">Overall Progress Grade (Based on Total Score %)</th></tr></thead>
+                  <thead className="bg-gray-200 border-b-2 border-gray-800"><tr><th className="p-1">Overall Progress Grade (Based on Total Score %)</th></tr></thead>
                   <tbody>
                     <tr className="border-b border-gray-800">
-                      <td className={`p-4 font-bold text-2xl ${latestScore.classProgress === 'EX' ? 'text-indigo-700' : latestScore.classProgress === 'GD' ? 'text-green-600' : 'text-red-600'}`}>
+                      <td className={`p-2 font-bold text-xl ${latestScore.classProgress === 'EX' ? 'text-indigo-700' : latestScore.classProgress === 'GD' ? 'text-green-600' : 'text-red-600'}`}>
                         {latestScore.classProgress || 'NI'}
                       </td>
                     </tr>
                   </tbody>
                 </table>
               </div>
-              {/* Detail & Comment */}
-              <div className="flex flex-col md:flex-row gap-6 flex-1">
-                <div className="flex-1 flex flex-col gap-4">
-                  <div className="h-56 border-2 border-gray-800 p-2 relative rounded-sm">
-                    <h4 className="absolute top-2 left-2 font-bold text-sm bg-white px-1 z-10">* Detail Analysis</h4>
+              {/* Detail & Comment Section: Reduced Heights & Gaps */}
+              <div className="flex flex-col md:flex-row gap-4 flex-1 min-h-0">
+                <div className="flex-1 flex flex-col gap-2">
+                  <div className="h-44 border-2 border-gray-800 p-2 relative rounded-sm">
+                    <h4 className="absolute top-1 left-1 font-bold text-xs bg-white px-1 z-10">* Detail Analysis</h4>
                     <ResponsiveContainer width="100%" height="100%">
                       {(() => {
                           const radarData = [];
+                          
+                          // Collect LS Data
                           (currentClassConfig.config.ls || []).forEach((item, idx) => {
+                              const score = Number(latestScore[`ls${idx+1}`]) || 0;
+                              const max = item.max || 0;
+                              const percent = max > 0 ? (score / max) * 100 : 0;
+                              
+                              // Clean up subject name for display (remove parenthesis)
+                              let cleanName = item.name.split('(')[0].trim();
+                              if (!cleanName) cleanName = `LS-${idx+1}`;
+                              
                               radarData.push({ 
-                                  subject: item.name.split('(')[0].substring(0, 10) + (item.name.length > 10 ? '..' : ''), 
-                                  A: item.max > 0 ? ((latestScore[`ls${idx+1}`] || 0) / item.max) * 100 : 0, 
-                                  full: item.max 
+                                  subject: cleanName, 
+                                  value: percent, 
+                                  full: 100 
                               });
                           });
+
+                          // Collect RW Data
                           (currentClassConfig.config.rw || []).forEach((item, idx) => {
+                              const score = Number(latestScore[`rw${idx+1}`]) || 0;
+                              const max = item.max || 0;
+                              const percent = max > 0 ? (score / max) * 100 : 0;
+
+                              let cleanName = item.name.split('(')[0].trim();
+                              if (!cleanName) cleanName = `RW-${idx+1}`;
+
                               radarData.push({ 
-                                  subject: item.name.split('(')[0].substring(0, 10) + (item.name.length > 10 ? '..' : ''), 
-                                  A: item.max > 0 ? ((latestScore[`rw${idx+1}`] || 0) / item.max) * 100 : 0, 
-                                  full: item.max 
+                                  subject: cleanName, 
+                                  value: percent, 
+                                  full: 100 
                               });
                           });
                           
                           return (
-                              <RadarChart cx="50%" cy="55%" outerRadius="70%" data={radarData}>
+                              <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarData}>
                                 <PolarGrid gridType="polygon" />
-                                <PolarAngleAxis dataKey="subject" tick={{fontSize: 10, fontWeight: 'bold'}} />
+                                <PolarAngleAxis dataKey="subject" tick={{fontSize: 9, fontWeight: 'bold'}} />
                                 <PolarRadiusAxis angle={30} domain={[0, 100]} hide />
-                                <Radar name="Student" dataKey="A" stroke="#4f46e5" fill="#6366f1" fillOpacity={0.6} />
+                                <Radar name="Student" dataKey="value" stroke="#4f46e5" fill="#6366f1" fillOpacity={0.5} />
                               </RadarChart>
                           );
                       })()}
                     </ResponsiveContainer>
                   </div>
-                  <div className="border-2 border-gray-800 p-4 rounded-sm flex flex-col justify-center bg-gray-50">
-                    <h3 className="font-bold text-lg mb-4 border-b-2 border-gray-300 pb-2">* Class Attitude</h3>
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center"><span className="font-medium text-gray-600">Attendance</span><span className={`font-bold px-3 py-1 rounded text-white ${latestScore.att_attendance === 'Excellent' ? 'bg-green-600' : latestScore.att_attendance === 'Good' ? 'bg-blue-500' : 'bg-red-400'}`}>{latestScore.att_attendance || '-'}</span></div>
-                      <div className="flex justify-between items-center"><span className="font-medium text-gray-600">Homework</span><span className={`font-bold px-3 py-1 rounded text-white ${latestScore.att_homework === 'Excellent' ? 'bg-green-600' : latestScore.att_homework === 'Good' ? 'bg-blue-500' : 'bg-red-400'}`}>{latestScore.att_homework || '-'}</span></div>
+                  <div className="border-2 border-gray-800 p-2 rounded-sm flex flex-col justify-center bg-gray-50 flex-1">
+                    <h3 className="font-bold text-sm mb-2 border-b-2 border-gray-300 pb-1">* Class Attitude</h3>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between items-center"><span className="font-medium text-gray-600">Attendance</span><span className={`font-bold px-2 py-0.5 rounded text-white text-xs ${latestScore.att_attendance === 'Excellent' ? 'bg-green-600' : latestScore.att_attendance === 'Good' ? 'bg-blue-500' : 'bg-red-400'}`}>{latestScore.att_attendance || '-'}</span></div>
+                      <div className="flex justify-between items-center"><span className="font-medium text-gray-600">Homework</span><span className={`font-bold px-2 py-0.5 rounded text-white text-xs ${latestScore.att_homework === 'Excellent' ? 'bg-green-600' : latestScore.att_homework === 'Good' ? 'bg-blue-500' : 'bg-red-400'}`}>{latestScore.att_homework || '-'}</span></div>
                     </div>
                   </div>
                 </div>
-                <div className="flex-1 border-2 border-gray-800 p-4 rounded-sm bg-indigo-50 relative flex flex-col">
-                  <div className="flex justify-between items-center mb-3 border-b-2 border-gray-300 pb-2">
-                    <h3 className="font-bold text-lg flex items-center gap-2">* Teacher's Comment</h3>
-                    <button onClick={generateAIComment} disabled={isGeneratingAI} className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-3 py-1 rounded text-xs font-bold shadow-md hover:shadow-lg transform active:scale-95 transition-all flex items-center gap-1 disabled:opacity-50">{isGeneratingAI ? <Loader2 className="animate-spin" size={14}/> : <Sparkles size={14} />}{isGeneratingAI ? '생성 중...' : 'AI 코멘트 생성'}</button>
+                <div className="flex-1 border-2 border-gray-800 p-2 rounded-sm bg-indigo-50 relative flex flex-col">
+                  <div className="flex justify-between items-center mb-2 border-b-2 border-gray-300 pb-1">
+                    <h3 className="font-bold text-sm flex items-center gap-2">* Teacher's Comment</h3>
+                    <button onClick={generateAIComment} disabled={isGeneratingAI} className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-2 py-0.5 rounded text-[10px] font-bold shadow-md hover:shadow-lg transform active:scale-95 transition-all flex items-center gap-1 disabled:opacity-50">{isGeneratingAI ? <Loader2 className="animate-spin" size={12}/> : <Sparkles size={12} />}{isGeneratingAI ? '...' : 'AI'}</button>
                   </div>
-                  <textarea className="w-full flex-1 p-3 border border-gray-300 rounded bg-white focus:ring-2 focus:ring-indigo-300 outline-none resize-none text-sm leading-relaxed text-gray-900" placeholder="AI 버튼을 누르거나 직접 입력하세요." value={latestScore.teacher_comment || ''} onChange={(e) => handleEditScore(latestScore.id, 'teacher_comment', e.target.value)} />
+                  <textarea className="w-full flex-1 p-2 border border-gray-300 rounded bg-white focus:ring-2 focus:ring-indigo-300 outline-none resize-none text-xs leading-relaxed text-gray-900" placeholder="AI 버튼을 누르거나 직접 입력하세요." value={latestScore.teacher_comment || ''} onChange={(e) => handleEditScore(latestScore.id, 'teacher_comment', e.target.value)} />
                 </div>
               </div>
             </>
           ) : <div className="text-center py-20 text-gray-500">선택된 학생의 성적 데이터가 없습니다.</div>}
           
           {/* Page Footer */}
-          <div className="mt-auto pt-8 w-full">
-            <div className="text-center font-bold text-gray-400 text-sm mb-2">- 1 -</div>
-            <div className="text-right text-gray-400 text-xs font-serif tracking-wider">MICKEY ENGLISH ACADEMY 미키영어</div>
+          <div className="mt-auto pt-2 w-full">
+            <div className="text-center font-bold text-gray-400 text-xs mb-1">- 1 -</div>
+            <div className="text-right text-gray-400 text-[10px] font-serif tracking-wider">MICKEY ENGLISH ACADEMY 미키영어</div>
           </div>
         </div>
 
         {/* === PAGE 2: History & Trend === */}
-        <div style={{ width: '210mm', minHeight: '297mm', boxSizing: 'border-box' }} className="bg-white p-12 rounded-lg shadow-lg border border-gray-400 flex flex-col gap-8 mx-auto mt-8 print:mt-0 print:break-after-page">
-            <div className="border-b-4 border-gray-800 pb-4 mb-4">
+        {/* Same Layout Logic Applied: p-8, Height 296.1mm */}
+        <div style={{ width: '210mm', height: '296.1mm', boxSizing: 'border-box', overflow: 'hidden' }} className="bg-white p-8 rounded-lg shadow-lg border border-gray-400 flex flex-col gap-6 mx-auto mt-8 print:mt-0 print:break-after-page">
+            <div className="border-b-4 border-gray-800 pb-2 mb-2">
               <h1 className="text-3xl font-serif font-bold tracking-wider text-gray-900">HISTORY & ANALYSIS</h1>
-              <p className="text-gray-600 mt-2">{selectedStudentInfo.displayName} 학생의 성적 변화 추이</p>
+              <p className="text-gray-600 mt-1">{selectedStudentInfo.displayName} 학생의 성적 변화 추이</p>
             </div>
-            <div className="flex-1">
-              <h3 className="font-bold text-lg mb-4 flex items-center gap-2 border-l-4 border-indigo-600 pl-2">1. Score History (Recent 5 Months)</h3>
-              <table className="w-full border-2 border-gray-800 text-sm text-center">
-                <thead className="bg-gray-100 border-b-2 border-gray-800 font-bold"><tr><th className="p-3 border-r border-gray-300">Date</th><th className="p-3 border-r border-gray-300">L&S Score</th><th className="p-3 border-r border-gray-300">R&W Score</th><th className="p-3 bg-yellow-50">Total Score</th></tr></thead>
+            <div className="flex-none">
+              <h3 className="font-bold text-base mb-2 flex items-center gap-2 border-l-4 border-indigo-600 pl-2">1. Score History (Recent 5 Months)</h3>
+              <table className="w-full border-2 border-gray-800 text-xs text-center">
+                <thead className="bg-gray-100 border-b-2 border-gray-800 font-bold"><tr><th className="p-2 border-r border-gray-300">Date</th><th className="p-2 border-r border-gray-300">L&S Score</th><th className="p-2 border-r border-gray-300">R&W Score</th><th className="p-2 bg-yellow-50">Total Score</th></tr></thead>
                 <tbody>
-                  {/* [Fix] Use uniqueHistory */}
                   {uniqueHistory.slice(0, 5).map((score) => {
                     const sClass = score.classInfo;
                     const config = (classSubjects && classSubjects[sClass]) ? classSubjects[sClass] : { ls: [], rw: [] };
@@ -495,7 +501,7 @@ const ReportCard = ({
 
                     return (
                         <tr key={score.id} className="border-b hover:bg-gray-50">
-                        <td className="p-3 border-r border-gray-200">{score.date}</td><td className="p-3 border-r border-gray-200 text-blue-600">{score.lsTotal} / {lsMax}</td><td className="p-3 border-r border-gray-200 text-green-600">{score.rwTotal} / {rwMax}</td><td className="p-3 font-bold text-lg bg-yellow-50 border-l-2 border-l-gray-200">{score.total}</td>
+                        <td className="p-2 border-r border-gray-200">{score.date}</td><td className="p-2 border-r border-gray-200 text-blue-600">{score.lsTotal} / {lsMax}</td><td className="p-2 border-r border-gray-200 text-green-600">{score.rwTotal} / {rwMax}</td><td className="p-2 font-bold text-base bg-yellow-50 border-l-2 border-l-gray-200">{score.total}</td>
                         </tr>
                     );
                   })}
@@ -503,26 +509,26 @@ const ReportCard = ({
                 </tbody>
               </table>
             </div>
-            <div className="flex-1 flex flex-col">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="font-bold text-lg flex items-center gap-2 border-l-4 border-indigo-600 pl-2">2. Growth Trend (Recent 12 Months)</h3>
+            <div className="flex-1 flex flex-col min-h-0">
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="font-bold text-base flex items-center gap-2 border-l-4 border-indigo-600 pl-2">2. Growth Trend (Recent 12 Months)</h3>
                 <div className="flex bg-gray-100 p-1 rounded-lg text-xs gap-1">
-                  <button onClick={() => setGraphMode('monthly')} className={`px-3 py-1 rounded transition-colors ${graphMode === 'monthly' ? 'bg-white shadow text-indigo-600 font-bold' : 'bg-transparent text-gray-500 hover:bg-gray-200'}`}>월별</button>
-                  <button onClick={() => setGraphMode('quarterly')} className={`px-3 py-1 rounded transition-colors ${graphMode === 'quarterly' ? 'bg-white shadow text-indigo-600 font-bold' : 'bg-transparent text-gray-500 hover:bg-gray-200'}`}>분기별</button>
-                  <button onClick={() => setGraphMode('yearly')} className={`px-3 py-1 rounded transition-colors ${graphMode === 'yearly' ? 'bg-white shadow text-indigo-600 font-bold' : 'bg-transparent text-gray-500 hover:bg-gray-200'}`}>년도별</button>
+                  <button onClick={() => setGraphMode('monthly')} className={`px-2 py-0.5 rounded transition-colors ${graphMode === 'monthly' ? 'bg-white shadow text-indigo-600 font-bold' : 'bg-transparent text-gray-500 hover:bg-gray-200'}`}>월별</button>
+                  <button onClick={() => setGraphMode('quarterly')} className={`px-2 py-0.5 rounded transition-colors ${graphMode === 'quarterly' ? 'bg-white shadow text-indigo-600 font-bold' : 'bg-transparent text-gray-500 hover:bg-gray-200'}`}>분기별</button>
+                  <button onClick={() => setGraphMode('yearly')} className={`px-2 py-0.5 rounded transition-colors ${graphMode === 'yearly' ? 'bg-white shadow text-indigo-600 font-bold' : 'bg-transparent text-gray-500 hover:bg-gray-200'}`}>년도별</button>
                 </div>
               </div>
-              <div className="border rounded-lg p-4 h-80 bg-white mb-6">
+              <div className="border rounded-lg p-2 h-64 bg-white mb-4 flex-none">
                   {graphData && graphData.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={graphData.slice(-12)} margin={{ top: 30, right: 10, left: 10, bottom: 10 }}>
+                      <LineChart data={graphData.slice(-12)} margin={{ top: 20, right: 10, left: 10, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false}/>
-                        <XAxis dataKey="name" padding={{ left: 30, right: 30 }} tick={{fontSize: 12}} />
+                        <XAxis dataKey="name" padding={{ left: 20, right: 20 }} tick={{fontSize: 10}} />
                         <YAxis domain={[0, 100]} hide/>
                         <RechartsTooltip formatter={(value) => `${Math.round(value)}`}/>
-                        <Legend />
+                        <Legend iconSize={8} wrapperStyle={{fontSize: '10px'}}/>
                         {graphData[0] && Object.keys(graphData[0]).filter(key => key !== 'name').map((key, index) => (
-                          <Line key={key} type="monotone" dataKey={key} stroke={getLineColor(index)} strokeWidth={3} dot={{r: 4}} activeDot={{r: 6}} connectNulls label={{position: 'top', dy: -5, fontSize: 10, fill: getLineColor(index), formatter: (val) => `${Math.round(val)}`}} />
+                          <Line key={key} type="monotone" dataKey={key} stroke={getLineColor(index)} strokeWidth={2} dot={{r: 3}} activeDot={{r: 5}} connectNulls label={{position: 'top', dy: -5, fontSize: 9, fill: getLineColor(index), formatter: (val) => `${Math.round(val)}`}} />
                         ))}
                       </LineChart>
                     </ResponsiveContainer>
@@ -531,13 +537,13 @@ const ReportCard = ({
 
               {/* Page 2 Bottom: Up to 2 selected charts */}
               {analysisCharts && page2Charts.length > 0 && (
-                <div className="mt-6">
-                    <h3 className="font-bold text-lg mb-2 flex items-center gap-2 border-l-4 border-indigo-600 pl-2">3. Detailed Analysis Charts</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="mt-2 flex-1 min-h-0 flex flex-col">
+                    <h3 className="font-bold text-base mb-2 flex items-center gap-2 border-l-4 border-indigo-600 pl-2 flex-none">3. Detailed Analysis Charts</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
                       {page2Charts.map(graphId => (
-                        <div key={graphId} className="border rounded-lg p-2 bg-white shadow-sm h-56 flex flex-col">
-                          <h4 className="font-bold text-sm text-gray-700 mb-1">{getGraphTitle(graphId)}</h4>
-                          <div className="flex-1">
+                        <div key={graphId} className="border rounded-lg p-2 bg-white shadow-sm flex flex-col h-full">
+                          <h4 className="font-bold text-xs text-gray-700 mb-1 flex-none">{getGraphTitle(graphId)}</h4>
+                          <div className="flex-1 min-h-0">
                               {renderReportGraph(graphId)}
                           </div>
                         </div>
@@ -548,22 +554,22 @@ const ReportCard = ({
             </div>
             
             {/* Page Footer */}
-            <div className="mt-auto pt-8 w-full">
-                <div className="text-center font-bold text-gray-400 text-sm mb-2">- 2 -</div>
-                <div className="text-right text-gray-400 text-xs font-serif tracking-wider">MICKEY ENGLISH ACADEMY 미키영어</div>
+            <div className="mt-auto pt-2 w-full">
+                <div className="text-center font-bold text-gray-400 text-xs mb-1">- 2 -</div>
+                <div className="text-right text-gray-400 text-[10px] font-serif tracking-wider">MICKEY ENGLISH ACADEMY 미키영어</div>
             </div>
         </div>
 
         {/* === PAGE 3+: Extra Detailed Charts === */}
         {analysisCharts && Array.isArray(extraPages) && extraPages.map((pageCharts, idx) => (
-          <div key={idx} style={{ width: '210mm', minHeight: '297mm', boxSizing: 'border-box' }} className="bg-white p-12 rounded-lg shadow-lg border border-gray-400 flex flex-col gap-4 mx-auto mt-8 print:break-before-page print:mt-0">
+          <div key={idx} style={{ width: '210mm', height: '296.1mm', boxSizing: 'border-box', overflow: 'hidden' }} className="bg-white p-8 rounded-lg shadow-lg border border-gray-400 flex flex-col gap-4 mx-auto mt-8 print:break-before-page print:mt-0">
               <div className="border-b-4 border-gray-800 pb-2 mb-2">
                 <h1 className="text-2xl font-serif font-bold tracking-wider text-gray-900">DETAILED ANALYSIS ({idx + 2})</h1>
                 <p className="text-gray-600 mt-1">{selectedStudentInfo.displayName || selectedStudentInfo.nameE || ''} - 추가 분석 차트</p>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 content-start">
                 {Array.isArray(pageCharts) && pageCharts.map(graphId => (
-                    <div key={graphId} className="border rounded-lg p-2 bg-white shadow-sm h-72 flex flex-col">
+                    <div key={graphId} className="border rounded-lg p-2 bg-white shadow-sm h-64 flex flex-col">
                       <h4 className="font-bold text-sm text-gray-700 mb-1">{getGraphTitle(graphId)}</h4>
                       <div className="flex-1">
                           {renderReportGraph(graphId)}
@@ -573,9 +579,9 @@ const ReportCard = ({
               </div>
               
               {/* Page Footer */}
-              <div className="mt-auto pt-8 w-full">
-                  <div className="text-center font-bold text-gray-400 text-sm mb-2">- {idx + 3} -</div>
-                  <div className="text-right text-gray-400 text-xs font-serif tracking-wider">MICKEY ENGLISH ACADEMY 미키영어</div>
+              <div className="mt-auto pt-2 w-full">
+                  <div className="text-center font-bold text-gray-400 text-xs mb-1">- {idx + 3} -</div>
+                  <div className="text-right text-gray-400 text-[10px] font-serif tracking-wider">MICKEY ENGLISH ACADEMY 미키영어</div>
               </div>
           </div>
         ))}
