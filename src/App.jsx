@@ -59,16 +59,16 @@ const YEARS = Array.from({ length: 80 }, (_, i) => 2020 + i);
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 
 // Text Data for Initialization
-const CLASS_SCORE_TXT = `0. PHONICS
-       (Phonics 1) - Consonant- Beginning Sound(b, c, d, e, f, g, h, j, k, l)
-       (Phonics 1) - Consonant- Beginning Sound(m, n, p, q, r, s, t, v)
-       (Phonics 1) - Consonant- Beginning Sound(w, x, y, z)
-       (Phonics 1) - Short vowel (a, e, i, o, u)
-       (Phonics 2) - Long  vowels(-a-e, ee-, -i-e, -o-e, -u-e)
-       (Phonics 2) - Consonant Blends(sm, sn, sp, sw, cl, gl, pl, br, dr, fr, mp, nk, ft)
-       (Phonics 2) - Consonant Digraphs(ch, sh, th, wh, ch, ck, ng, sh)
+const CLASS_SCORE_TXT = `1. PHONICS
+       (Phonics 1) - Consonant- Beginning Sound(b, c, d, e, f, g, h, j, k, l) - 0문항
+       (Phonics 1) - Consonant- Beginning Sound(m, n, p, q, r, s, t, v) - 0문항
+       (Phonics 1) - Consonant- Beginning Sound(w, x, y, z) - 0문항
+       (Phonics 1) - Short vowel (a, e, i, o, u) - 0문항
+       (Phonics 2) - Long  vowels(-a-e, ee-, -i-e, -o-e, -u-e) - 0문항
+       (Phonics 2) - Consonant Blends(sm, sn, sp, sw, cl, gl, pl, br, dr, fr, mp, nk, ft) - 0문항
+       (Phonics 2) - Consonant Digraphs(ch, sh, th, wh, ch, ck, ng, sh) - 0문항
 
-1. PRE STARTER
+2. PRE STARTER
        (LS) - Listen and Recognize (듣고 이해하기) - 5문항
        (LS) - Listen and Respond (질문 듣고 답하기) - 5문항
        (LS) - Listen and Retell (대화를 듣고 질문에 답하기) - 5문항
@@ -76,7 +76,7 @@ const CLASS_SCORE_TXT = `0. PHONICS
        (RW) - Look and Recognize (그림보고 이해하기) - 5문항
        (RW) - Read and Retell (글을 읽고 질문에 답하기) - 10문항
 
-2. STARTER
+3. STARTER
        (LS) - Listen and Recognize (듣고 이해하기) - 5문항
        (LS) - Listen and Respond (질문 듣고 답하기) - 5문항
        (LS) - Listen and Retell (대화를 듣고 질문에 답하기) - 10문항
@@ -84,7 +84,7 @@ const CLASS_SCORE_TXT = `0. PHONICS
        (RW) - Situational Writing (문장쓰기) - 5문항
        (RW) - Reading and Retelling (글을 읽고 질문에 답하기) - 10문항
 
-3. Basic
+4. Basic
        (LS) - Listen and Recognize (듣고 이해하기) - 5문항
        (LS) - Listen and Respond (질문 듣고 답하기) - 5문항
        (LS) - Listen and Retell (대화를 듣고 질문에 답하기) - 15문항
@@ -94,7 +94,7 @@ const CLASS_SCORE_TXT = `0. PHONICS
        (RW) - Practical Reading and Retelling (실용적인 글을 읽고 질문에 답하기) - 10문항
        (RW) - Reading and Retelling (글을 읽고 질문에 답하기) - 10문항
 
-4. Junior
+5. Junior
        (LS) - Listen and Respond (질문 듣고 답하기) - 10문항
        (LS) - Listen and Retell (대화를 듣고 질문에 답하기) - 10문항
        (LS) - Listen and Speak (듣고 말하기) - 10문항

@@ -24,7 +24,8 @@ const StudentManagement = ({
   handleDeleteClass = () => {},
   handleAddStudent = () => {},
   handleDeleteStudent = () => {},
-  handleNameClick = () => {}
+  handleNameClick = () => {},
+  handleSeedSpecialData = () => {}
 }) => {
   // 안전한 배열 및 객체 보장 (Props Validation Check)
   const safeSchools = Array.isArray(schools) ? schools : [];
@@ -93,13 +94,22 @@ const StudentManagement = ({
       )}
 
       <div className="bg-white p-6 rounded-lg shadow border border-indigo-200 bg-indigo-50 relative">
-        <button 
-          onClick={() => setShowConfig(!showConfig)} 
-          className="absolute top-6 right-6 text-gray-400 hover:text-indigo-600 transition-colors bg-transparent"
-          title="환경 설정 (학년/클래스/학교 관리)"
-        >
-          <Settings size={20}/>
-        </button>
+        <div className="absolute top-6 right-6 flex gap-2">
+            <button 
+              onClick={handleSeedSpecialData} 
+              className="text-indigo-400 hover:text-indigo-600 transition-colors bg-transparent font-bold text-xs border border-indigo-200 px-2 py-1 rounded hover:bg-indigo-100"
+              title="테스트용 특수 학생 5명 생성 (꾸준이, 성장이...)"
+            >
+              + Test Data
+            </button>
+            <button 
+              onClick={() => setShowConfig(!showConfig)} 
+              className="text-gray-400 hover:text-indigo-600 transition-colors bg-transparent"
+              title="환경 설정 (학년/클래스/학교 관리)"
+            >
+              <Settings size={20}/>
+            </button>
+        </div>
         <h3 className="font-bold text-lg text-indigo-800 mb-4 flex items-center gap-2"><UserPlus size={20}/> 신규 학생 등록</h3>
         <div className="flex flex-wrap gap-4 items-end">
           <div className="flex flex-col gap-1"><label className="text-xs font-bold text-gray-600">한글 이름</label><input type="text" placeholder="예: 홍길동" className="border p-2 rounded w-32 bg-white text-gray-900" value={safeNewStudent.nameK || ''} onChange={(e) => setNewStudent({...safeNewStudent, nameK: e.target.value})} /></div>

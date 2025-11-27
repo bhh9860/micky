@@ -218,7 +218,7 @@ const StudentDetail = ({
           { id: 5, title: '5. 회차별 종합 성적 비교 (%)', icon: LineChartIcon, content: (
               <div className="h-48"><ResponsiveContainer><LineChart data={filteredCharts.subjectScoreAnalysisData}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="date" tick={{fontSize:10}}/><YAxis domain={['auto', 'auto']}/><RechartsTooltip formatter={(value) => value}/><Legend verticalAlign="top" height={36}/><Line type="monotone" dataKey="MyScore" stroke="#D97706" strokeWidth={2} name="내점수"/><Line type="monotone" dataKey="ClassAvg" stroke="#F59E0B" strokeWidth={2} name="반평균"/><Line type="monotone" dataKey="TotalAvg" stroke="#10B981" strokeWidth={2} name="전체응시생"/></LineChart></ResponsiveContainer></div>
           )},
-          { id: 7, title: '7. 전체 평균 대비 위치 (%)', icon: TrendingUp, content: (
+          { id: 7, title: '7. 클래스 평균 대비 위치 (%)', icon: TrendingUp, content: (
               <div className="h-48"><ResponsiveContainer><ComposedChart data={filteredCharts.compareData}><CartesianGrid stroke="#f5f5f5"/><XAxis dataKey="date" tick={{fontSize:10}}/><YAxis domain={[0, 100]}/><RechartsTooltip formatter={(value) => value}/><Bar dataKey="ClassAvg" barSize={20} fill="#ff7300"/><Line type="monotone" dataKey="MyScore" stroke="#413ea0" strokeWidth={3}/></ComposedChart></ResponsiveContainer></div>
           )},
           { id: 8, title: '8. 월별 태도 변화', icon: Sparkles, content: (
